@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.1] - 2026-09-30
+
+- `charge_model` returns a `ChargeModel` on every path; where the systematics cannot form the
+  precursor excitation energy it falls through to the means instead of returning `nothing`.
+
 ## [0.1.0] - 2026-09-30
 
 First version: the fragmentation domain of `DeterministicSequentialEmission.jl`, extracted so that

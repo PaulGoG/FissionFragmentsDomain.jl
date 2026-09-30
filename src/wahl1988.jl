@@ -344,5 +344,6 @@ function charge_model(
     reaction = wahl_1988(system; neutron_pairing = neutron_pairing)
     reaction === nothing || return reaction
     is_wahl_applicable(table, system) || return mean_charge_distribution()
-    return WahlSystematics(table, system; neutron_pairing = neutron_pairing)
+    systematics = WahlSystematics(table, system; neutron_pairing = neutron_pairing)
+    return systematics === nothing ? mean_charge_distribution() : systematics
 end
