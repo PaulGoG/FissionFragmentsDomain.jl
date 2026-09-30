@@ -181,6 +181,10 @@ julia> length(read_mass_excess_table(AME2020_MASS_EXCESS_FILE))
 const AME2020_MASS_EXCESS_FILE =
     @path joinpath(@__DIR__, "..", "data", "reference", "mass_excess_ame2020.dat")
 
+# The version of this package, read once when it is compiled, for the run records it writes.
+const PACKAGE_VERSION =
+    VersionNumber(TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))["version"])
+
 include("nuclides.jl")
 include("tables.jl")
 include("masses.jl")

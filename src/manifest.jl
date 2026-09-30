@@ -208,7 +208,7 @@ function ManifestDomain(
         domain.charges_per_mass,
         charge_model_label(charge),
         basename(masses.source),
-        string(pkgversion(@__MODULE__)),
+        string(PACKAGE_VERSION),
         averaging isa ChargeResolved && averaging.excitation !== nothing,
     )
 end

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4] - 2026-09-30
+
+- The package version recorded in `ManifestDomain` is read once, when the package is compiled,
+  instead of through `pkgversion` at every call. JET on Julia 1.11 reported a possible error
+  inside that call, which failed the 0.1.3 test suite there. Behaviour is otherwise unchanged
+  from 0.1.3.
+
 ## [0.1.3] - 2026-09-30
 
 - `ChargeResolved`, the exact inverse of a partition that gives every fragmentation its own
