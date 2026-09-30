@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.7] - 2026-09-30
+
+- `read_segmented_curve`'s docstring gave `mean_of_ratios` as the averaging a per-charge partition
+  inverts. It now names the charge-resolved relation, the only exact inverse, and the manifest's
+  `[domain]` record. Documentation only.
+
 ## [0.1.6] - 2026-09-30
 
 - The Gilbert–Cameron shell corrections ship with the package as

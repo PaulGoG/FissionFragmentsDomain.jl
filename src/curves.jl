@@ -137,10 +137,11 @@ not equivalent, because `R_T = √[(1−r_ν)/(R_a r_ν)]` inherits the shell st
 `R_a(A_H)`; see [`temperature_ratio_path`](@ref).
 
 Each curve spans its own fit range and evaluates to `nothing` outside it. A partition that
-applies per-`(A_H, Z_H)` level density parameters and reduces over `Z` afterwards corresponds to
-`⟨a_L/a_H⟩` rather than `⟨a_L⟩/⟨a_H⟩`, so its `R_T` should come from a run with
-`ratio_averaging = "mean_of_ratios"`; the setting is recorded in the run identifier the file name
-carries.
+applies per-`(A_H, Z_H)` level density parameters and reduces over `Z` afterwards is inverted
+exactly only by the charge-resolved relation, [`ChargeResolved`](@ref),
+`ratio_averaging = "charge_resolved"`. Either effective ratio misses it by up to 10⁻² in `R_T`.
+The producing run records its averaging in the `[domain]` table of its manifest,
+[`ManifestDomain`](@ref).
 """
 function read_segmented_curve(
     path::AbstractString;
