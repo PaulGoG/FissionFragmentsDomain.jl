@@ -2,7 +2,9 @@
 # the readers accept, and third-party tables stay with the pipelines that consume them.
 /data/*
 !/data/README.md
-!/data/mass_excess_ame2020.dat
+!/data/reference/
+/data/reference/*
+!/data/reference/mass_excess_ame2020.dat
 
 # Libraries do not pin a manifest; each environment resolves against [compat].
 Manifest*.toml
