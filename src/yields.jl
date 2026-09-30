@@ -100,9 +100,14 @@ const MEAN_KINETIC_ENERGY_SPEC =
 """
     KINETIC_ENERGY_DISPERSION_SPEC
 
-Layout of a tabulated `σ_TKE(A)`: one header row, then `A sigma_TKE`, in MeV.
+Layout of a tabulated `σ_TKE(A)`: one header row, then `A sigma_TKE [sigma_TKE_uncertainty]`, in
+MeV, as a retrieval of the `sigma_TKE_vs_A` observable writes it.
 """
-const KINETIC_ENERGY_DISPERSION_SPEC = TableSpec([:A, :sigma_TKE]; skip = 1)
+const KINETIC_ENERGY_DISPERSION_SPEC = TableSpec(
+    [:A, :sigma_TKE, :sigma_TKE_uncertainty];
+    skip = 1,
+    optional = (:sigma_TKE_uncertainty,),
+)
 
 """
     KineticEnergyDispersion

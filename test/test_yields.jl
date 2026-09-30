@@ -82,6 +82,17 @@ end
         @test kinetic_energy_dispersion(read_kinetic_energy_dispersion(renamed), 120) ≈ 7.0 rtol =
             RTOL
 
+        # The uncertainty column a retrieval writes is accepted, and the width read as before.
+        with_uncertainty = joinpath(directory, "with_uncertainty.dat")
+        write(
+            with_uncertainty,
+            "A sigma_TKE sigma_TKE_uncertainty\n130 9.95 0.41\n140 9.11 0.27\n",
+        )
+        @test kinetic_energy_dispersion(
+            read_kinetic_energy_dispersion(with_uncertainty),
+            140,
+        ) ≈ 9.11 rtol = RTOL
+
         # A non-positive width is refused rather than producing a degenerate Gaussian.
         bad = joinpath(directory, "bad.dat")
         write(bad, "A sigma_TKE\n120 0.0\n")

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1] - 2026-10-01
+
+- `read_kinetic_energy_dispersion` accepts the optional uncertainty column,
+  `A sigma_TKE sigma_TKE_uncertainty`, that a retrieval of `sigma_TKE_vs_A` writes. It refused
+  such a file before.
+
 ## [0.2.0] - 2026-09-30
 
 Breaking: a kinetic-energy width is no longer assumed.
