@@ -125,7 +125,9 @@ records it: the level density model (`level_density_model`, one of
 (`ratio_averaging`, one of [`RATIO_AVERAGINGS`](@ref)), the charges retained per mass
 (`charges_per_mass`, odd and positive), the charge model (`charge_model`, as
 [`charge_model_label`](@ref) spells it), the mass table (`mass_table`, the file name of its
-source), the version of this package (`package_version`), and whether a charge-resolved
+source), the version of this package (`package_version`), whether the Gilbert–Cameron
+formula took its deformed branch (`deformed_branch`, required with `"GC"` and `false` otherwise;
+see [`GilbertCameron`](@ref)), and whether a charge-resolved
 inversion weighted each fragmentation by its mean total excitation (`excitation_weighted`, see
 [`ChargeResolved`](@ref); `false` when the table omits it). A consumer that partitions the
 excitation energy on a different domain does not invert the same relation.
@@ -138,6 +140,7 @@ struct ManifestDomain
     mass_table::String
     package_version::String
     excitation_weighted::Bool
+    deformed_branch::Bool
 
     function ManifestDomain(
         level_density_model::AbstractString,
@@ -147,6 +150,7 @@ struct ManifestDomain
         mass_table::AbstractString,
         package_version::AbstractString,
         excitation_weighted::Bool = false,
+        deformed_branch::Bool = false,
     )
         level_density_model in LEVEL_DENSITY_MODELS ||
             throw(ArgumentError("[domain] level_density_model must be one of \
@@ -168,6 +172,14 @@ struct ManifestDomain
         isempty(mass_table) && throw(ArgumentError("[domain] mass_table must not be empty"))
         isempty(package_version) &&
             throw(ArgumentError("[domain] package_version must not be empty"))
+        deformed_branch &&
+            level_density_model != "GC" &&
+            throw(
+                ArgumentError(
+                    "[domain] deformed_branch applies to level_density_model = \"GC\" only, \
+                     got $(repr(level_density_model))",
+                ),
+            )
         excitation_weighted &&
             ratio_averaging != "charge_resolved" &&
             throw(
@@ -184,6 +196,7 @@ struct ManifestDomain
             String(mass_table),
             String(package_version),
             excitation_weighted,
+            deformed_branch,
         )
     end
 end
@@ -210,6 +223,7 @@ function ManifestDomain(
         basename(masses.source),
         string(PACKAGE_VERSION),
         averaging isa ChargeResolved && averaging.excitation !== nothing,
+        model isa GilbertCameron && model.deformed_branch,
     )
 end
 
@@ -234,6 +248,7 @@ function Base.show(io::IO, domain::ManifestDomain)
         domain.charge_model,
         ", ",
         domain.mass_table,
+        domain.deformed_branch ? ", deformed branch" : "",
         domain.excitation_weighted ? ", excitation-weighted" : "",
         ")",
     )
@@ -357,6 +372,23 @@ function _manifest_integer(
     return Int(_manifest_value(table, key, Int, label, source))
 end
 
+# Required with Gilbert–Cameron, whose record would otherwise read as one branch or the other.
+function _manifest_deformed_branch(table::AbstractDict, source::AbstractString)
+    haskey(table, "deformed_branch") && return _manifest_value(
+        table,
+        "deformed_branch",
+        Bool,
+        "[domain] deformed_branch",
+        source,
+    )
+    get(table, "level_density_model", nothing) == "GC" && throw(
+        ArgumentError(
+            "$source: [domain] deformed_branch is required with level_density_model = \"GC\"",
+        ),
+    )
+    return false
+end
+
 """
     read_temperature_ratio_manifest(path) -> TemperatureRatioManifest
 
@@ -372,7 +404,8 @@ Read and validate the run record of a temperature-ratio extraction. Each check t
   of [`LEVEL_DENSITY_MODELS`](@ref), `ratio_averaging`, one of [`RATIO_AVERAGINGS`](@ref), an
   odd positive integer `charges_per_mass`, and non-empty `charge_model`, `mass_table` and
   `package_version`; `excitation_weighted`, a Boolean, is optional and admitted only with
-  `ratio_averaging = "charge_resolved"`. Without the table the manifest's `domain` is `nothing`.
+  `ratio_averaging = "charge_resolved"`; `deformed_branch`, a Boolean, is required with
+  `level_density_model = "GC"` and must be `false` or absent otherwise. Without the table the manifest's `domain` is `nothing`.
 
 `[run] columns` is recorded but not used to locate a column. File paths inside the manifest are
 resolved relative to the manifest's directory; absolute paths are taken as written.
@@ -498,6 +531,7 @@ function read_temperature_ratio_manifest(path::AbstractString)
                 "[domain] excitation_weighted",
                 source,
             ) : false,
+            _manifest_deformed_branch(domain_table, source),
         )
         domain = try
             ManifestDomain(fields...)
@@ -629,6 +663,7 @@ function write_temperature_ratio_manifest(
             "mass_table" => domain.mass_table,
             "package_version" => domain.package_version,
             "excitation_weighted" => domain.excitation_weighted,
+            "deformed_branch" => domain.deformed_branch,
         )
     end
     open(io -> TOML.print(io, document; sorted = true, by = _manifest_key_order), path, "w")

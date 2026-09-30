@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5] - 2026-09-30
+
+- `ManifestDomain` records whether the Gilbert–Cameron formula took its deformed branch,
+  eq. (21) of the 1965 paper beside eq. (20), as `deformed_branch`. The field is required in a
+  `[domain]` table with `level_density_model = "GC"`, and must be `false` or absent otherwise. The
+  two settings give different `a` for about a third of the yield-weighted ²⁵²Cf fragments, and
+  the record could not tell them apart.
+
 ## [0.1.4] - 2026-09-30
 
 - The package version recorded in `ManifestDomain` is read once, when the package is compiled,

@@ -359,3 +359,45 @@ end
               findfirst(==("[[segmented_curve]]"), tables)
     end
 end
+
+@testset "the Gilbert–Cameron branch is recorded" begin
+    @test_throws ArgumentError ManifestDomain(
+        "BSFG",
+        "charge_resolved",
+        5,
+        "x",
+        "y",
+        "0.1.5",
+        false,
+        true,
+    )
+    gc = ManifestDomain("GC", "charge_resolved", 5, "x", "y", "0.1.5", false, true)
+    @test gc.deformed_branch
+    @test gc != ManifestDomain("GC", "charge_resolved", 5, "x", "y", "0.1.5", false, false)
+
+    mktempdir() do directory
+        base = read_temperature_ratio_manifest(_manifest(directory))
+        manifest = TemperatureRatioManifest(
+            base.system,
+            base.ordinate,
+            base.abscissa,
+            base.columns,
+            base.curves,
+            base.source,
+            gc,
+        )
+        path = write_temperature_ratio_manifest(joinpath(directory, "gc.toml"), manifest)
+        @test read_temperature_ratio_manifest(path).domain == gc
+
+        # A Gilbert–Cameron record that does not say which branch it took is refused.
+        write(path, replace(read(path, String), r"deformed_branch = \w+\n" => ""))
+        thrown = try
+            read_temperature_ratio_manifest(path)
+            nothing
+        catch err
+            err
+        end
+        @test thrown isa ArgumentError
+        @test occursin("[domain] deformed_branch", thrown.msg)
+    end
+end
