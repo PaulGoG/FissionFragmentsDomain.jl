@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9] - 2026-09-30
+
+- `recommended_mean_total_kinetic_energy` and `RECOMMENDED_MEAN_TOTAL_KINETIC_ENERGY`: the energy
+  standards of the mean pre-neutron TKE for ²⁵²Cf(sf) and thermal fission of ²³³U, ²³⁵U and
+  ²³⁹Pu. They are Gönnenwein's 1991 recommendations as tabulated by Bertsch et al. (2015), with
+  the ²⁵²Cf value from the absolute measurement of Henschel et al. (1981).
+
 ## [0.1.8] - 2026-09-30
 
 - `factorized_yield(...; symmetrize = true)` imposes the exact pre-neutron identities:

@@ -234,3 +234,15 @@ end
         @test_throws ArgumentError read_mass_yield(repeated)
     end
 end
+
+@testset "the energy standards of the mean total kinetic energy" begin
+    @test value(recommended_mean_total_kinetic_energy(CF252)) == 184.1
+    thermal(Z, A) = neutron_induced_fission(Nuclide(Z, A), 2.53e-8, "nth")
+    @test value(recommended_mean_total_kinetic_energy(thermal(92, 235))) == 170.5
+    @test uncertainty(recommended_mean_total_kinetic_energy(thermal(94, 239))) == 0.5
+    # A thermal standard says nothing about another channel or an unlisted system.
+    @test recommended_mean_total_kinetic_energy(
+        neutron_induced_fission(Nuclide(92, 235), 5.8e-4, "nres"),
+    ) === nothing
+    @test recommended_mean_total_kinetic_energy(thermal(94, 241)) === nothing
+end

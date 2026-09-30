@@ -605,3 +605,50 @@ function read_mass_yield(
     name = isempty(label) ? first(splitext(basename(path))) : String(label)
     return MassYield(masses[order], measured[order], σY[order], name, String(path))
 end
+
+"""
+    RECOMMENDED_MEAN_TOTAL_KINETIC_ENERGY
+
+The energy standards of the mean pre-neutron total kinetic energy of fission fragments, in MeV,
+keyed by `(target Z, target A, channel)`:
+
+| System | ⟨TKE⟩ |
+|---|---|
+| ²⁵²Cf(sf) | 184.1 ± 1.3 |
+| ²³³U(n_th,f) | 170.1 ± 0.5 |
+| ²³⁵U(n_th,f) | 170.5 ± 0.5 |
+| ²³⁹Pu(n_th,f) | 177.9 ± 0.5 |
+
+These are the recommendations of F. Gönnenwein, in *The Nuclear Fission Process*, ed. C.
+Wagemans, CRC Press (1991), p. 323, ISBN 978-0-8493-5434-2, as tabulated by G. F. Bertsch *et
+al.*, *J. Phys. G* **42**, 077001 (2015), Table V, doi:10.1088/0954-3899/42/7/077001. The ²⁵²Cf
+value rests on the absolute measurement of H. Henschel *et al.*, *Nucl. Instrum. Methods* **190**,
+125 (1981), doi:10.1016/0029-554X(81)90213-5. Double-energy experiments are commonly normalised
+to these values, since their pulse-height-defect calibrations differ by several MeV.
+"""
+const RECOMMENDED_MEAN_TOTAL_KINETIC_ENERGY = Dict(
+    (98, 252, "sf") => measurement(184.1, 1.3),
+    (92, 233, "nth") => measurement(170.1, 0.5),
+    (92, 235, "nth") => measurement(170.5, 0.5),
+    (94, 239, "nth") => measurement(177.9, 0.5),
+)
+
+"""
+    recommended_mean_total_kinetic_energy(system) -> Union{Measurement{Float64},Nothing}
+
+The energy standard of the mean pre-neutron total kinetic energy for `system`, in MeV, from
+[`RECOMMENDED_MEAN_TOTAL_KINETIC_ENERGY`](@ref); `nothing` where none exists. The thermal
+standards apply to the `"nth"` channel only.
+
+# Examples
+
+```jldoctest
+julia> recommended_mean_total_kinetic_energy(spontaneous_fission(Nuclide(98, 252)))
+184.1 ± 1.3
+```
+"""
+recommended_mean_total_kinetic_energy(system::FissioningSystem) = get(
+    RECOMMENDED_MEAN_TOTAL_KINETIC_ENERGY,
+    (system.target.Z, system.target.A, system.channel),
+    nothing,
+)
