@@ -17,6 +17,11 @@ updates:
       - "/test"
     schedule:
       interval: "weekly"
+    # Standard libraries are versioned with Julia itself, so the proposed bounds (e.g. "<0.0.1, 1")
+    # admit no real release.
+    ignore:
+      - dependency-name: "Test"
+      - dependency-name: "TOML"
     # To group all Julia dependency updates into a single PR, uncomment the following:
     # groups:
     #   julia-dependencies:
