@@ -7,8 +7,10 @@ the temperature-ratio extraction and the emission model share it.
 
 - Nuclides, fissioning systems, the system token and its record; element symbols to `Z = 118`.
 - Positional table reader; AME2020 mass excesses shipped, `Q`-values and separation energies.
-- Isobaric charge distribution from evaluated tables, Wahl Table A, the Wahl systematics or the
-  conventional means; the fragmentation domain, with an optional vanishing polarization at the
+- Isobaric charge distribution from evaluated tables, the Wahl (1988) model of four reactions, the
+  Wahl (2002) systematics or the conventional means. The 1988 model reproduces that evaluation's
+  Tables I–IV row by row from `ν̄_A` alone. Both `Zₚ` models use the lattice (erf) form of eq. (7)
+  and serve fragments directly, with the proton even-odd factor and, on request, the neutron one; the fragmentation domain, with an optional vanishing polarization at the
   symmetric split, its charge windows and the split weight of a pair sum.
 - Level density parameters, back-shifted Fermi gas and Gilbert–Cameron; their ratio across a pair
   averaged over the charge distribution in either order; the relation between the temperature

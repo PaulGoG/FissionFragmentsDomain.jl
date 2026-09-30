@@ -161,7 +161,7 @@ every quantity built on `TXE` shifts accordingly. Where no joint `Y(A,TKE)` was 
 """
 function weights_from(
     domain::FragmentationDomain,
-    distribution::ChargeDistribution,
+    distribution::ChargeModel,
     kinetic_energies,
 )
     probabilities = fragment_charge_probabilities(domain, distribution)

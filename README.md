@@ -71,7 +71,7 @@ using FissionFragmentsDomain
 
 system = spontaneous_fission(Nuclide(98, 252))
 masses = read_mass_excess_table(AME2020_MASS_EXCESS_FILE)
-charge = build_charge_distribution(masses, system, 126:174)     # Wahl Table A for ²⁵²Cf
+charge = charge_model(masses, system)                           # Wahl (1988), CF252S
 domain = fragmentation_domain(system, charge, 126:174)
 R_a = level_density_ratio(RatioOfMeans(), BackShiftedFermiGas(masses), domain)
 heavy_excitation_fraction(1.2, R_a[140])                        # E*_H/TXE at A_H = 140
@@ -82,7 +82,7 @@ heavy_excitation_fraction(1.2, R_a[140])                        # E*_H/TXE at A_
 | Component | State |
 |---|---|
 | Systems, masses, `Q` | complete; AME2020 shipped |
-| Charge distribution | evaluated tables, Wahl Table A (four reactions), Wahl systematics (low-energy branch), conventional means |
+| Charge distribution | evaluated tables; Wahl (1988) for its four reactions, reproducing its Tables I–IV row by row; Wahl (2002) systematics, low-energy branch; conventional means |
 | Fragmentation domain | complete; optional zero polarization at the symmetric split |
 | Level density | back-shifted Fermi gas (von Egidy–Bucurescu), Gilbert–Cameron with its deformed branch |
 | Temperature ratio | forward and inverse relation, `R_a` in either averaging order |
@@ -109,8 +109,9 @@ FissionFragmentsDomain.jl/
 │   ├── tables.jl             positional table reader
 │   ├── masses.jl             mass excesses, separation energies, Q
 │   ├── charge.jl             isobaric charge distribution
-│   ├── wahl.jl               Wahl Zₚ systematics
-│   ├── wahl_reactions.jl     Table A per-reaction parameters, layer resolution
+│   ├── wahl.jl               Wahl (2002) Zₚ systematics
+│   ├── zp.jl                 the Zₚ model: eq. (7), products and fragments
+│   ├── wahl1988.jl           Wahl (1988) per-reaction model, layer resolution
 │   ├── domain.jl             fragmentation domain, splits, charge windows
 │   ├── leveldensity.jl       BSFG and Gilbert–Cameron
 │   ├── energetics.jl         E*_CN, TXE, kinematics, energetics sweep
@@ -122,7 +123,7 @@ FissionFragmentsDomain.jl/
 ├── test/
 │   ├── runtests.jl, physics.jl, activate.jl, Project.toml
 │   ├── test_*.jl
-│   └── references/Cf252_sf/  Q, a and yield projections of the archived run
+│   └── references/           the archived ²⁵²Cf run; Wahl (1988), Tables I–IV
 ├── activate.jl
 ├── check.jl
 ├── CHANGELOG.md

@@ -1,6 +1,7 @@
 using Test
 using TOML: TOML
 using Measurements: Measurement, measurement, value, uncertainty
+using SpecialFunctions: erf
 using FissionFragmentsDomain
 
 const DATA =
@@ -15,7 +16,7 @@ include("physics.jl")
     include("test_masses.jl")
     include("test_charge.jl")
     include("test_wahl.jl")
-    include("test_wahl_reactions.jl")
+    include("test_wahl1988.jl")
     include("test_domain.jl")
     include("test_leveldensity.jl")
     include("test_energetics.jl")

@@ -296,25 +296,16 @@ The isobaric charge probability `p(Z,A)` of every fragment the domain produces, 
 `Y(A,Z,TKE) = p(Z,A) Y(A,TKE)`. Each nuclide receives one value, evaluated against the `Zₚ` of
 its own mass, neither accumulated over the fragmentations it appears in nor inherited from a
 complementary fragment; the distinction matters only at `A = A₀/2`. This differs from
-[`fragments`](@ref), which sums a nuclide's contributions over the domain. `p` is the analytic
-Gaussian, unnormalized over the retained charges; see `src/charge.jl`.
+[`fragments`](@ref), which sums a nuclide's contributions over the domain. `p` is not
+renormalized over the retained charges; see [`fragment_charge_probability`](@ref).
 """
-function fragment_charge_probabilities(
-    domain::FragmentationDomain,
-    distribution::ChargeDistribution,
-)
-    system = domain.system
-    symmetric = system.compound.A
+function fragment_charge_probabilities(domain::FragmentationDomain, model::ChargeModel)
     probabilities = Dict{Nuclide, Float64}()
     for entry in domain.entries
         for fragment in (entry.light, entry.heavy)
             haskey(probabilities, fragment) && continue
-            A_heavy = max(fragment.A, symmetric - fragment.A)
-            ΔZ = charge_polarization(distribution, A_heavy)
-            σ_Z = charge_dispersion(distribution, A_heavy)
-            Zₚ_heavy = most_probable_charge(system, A_heavy, ΔZ)
-            Zₚ = fragment.A == A_heavy ? Zₚ_heavy : system.compound.Z - Zₚ_heavy
-            probabilities[fragment] = charge_probability(fragment.Z, Zₚ, σ_Z)
+            probabilities[fragment] =
+                fragment_charge_probability(model, domain.system, fragment)
         end
     end
     return probabilities
@@ -371,7 +362,7 @@ model's; [`coverage`](@ref) quantifies the overlap.
 """
 function build_fragment_yield(
     domain::FragmentationDomain,
-    distribution::ChargeDistribution,
+    distribution::ChargeModel,
     experimental::MassEnergyYield;
     total::Real = DEFAULT_YIELD_TOTAL,
 )

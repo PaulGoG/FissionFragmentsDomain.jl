@@ -7,7 +7,8 @@ partition see them.
 A fissioning system splits into complementary pairs `(A_L, Z_L) + (A_H, Z_H)` at a total kinetic
 energy `TKE`. This package holds what those models share: nuclides and fissioning systems, the
 atomic mass evaluation and the `Q`-values it gives, the isobaric charge distribution (evaluated
-tables or the Wahl `Zₚ` systematics), the fragmentation domain built from it, fragment level
+tables, or Wahl's `Zₚ` model with a reaction's own 1988 parameters or the 2002 systematics),
+the fragmentation domain built from it, fragment level
 density parameters and their ratio across a pair, the energy balance `TXE = Q + E*_CN − TKE`, the
 relation between the temperature ratio `R_T` and the excitation-energy partition, the fragment
 yield `Y(A, Z, TKE)` and averages over it, and the heavy-fragment curves `R_T(A_H)` and
@@ -18,6 +19,7 @@ module FissionFragmentsDomain
 
 using Measurements: Measurement, measurement, value
 using RelocatableFolders: @path
+using SpecialFunctions: erf
 using TOML: TOML
 
 export Nuclide, NEUTRON, neutron_number, element_symbol
@@ -45,7 +47,8 @@ export AME2020_MASS_EXCESS_FILE,
     neutron_separation_energy,
     q_value,
     complementary_fragment
-export ChargeDistribution,
+export ChargeModel,
+    ChargeDistribution,
     CHARGE_DISTRIBUTION_SPEC,
     DEFAULT_CHARGE_POLARIZATION,
     DEFAULT_CHARGE_DISPERSION,
@@ -56,20 +59,27 @@ export ChargeDistribution,
     unchanged_charge_distribution,
     most_probable_charge,
     charge_probability,
-    charge_numbers
+    charge_numbers,
+    fragment_most_probable_charge,
+    fragment_charge_probability
+export ZpModel,
+    fractional_independent_yields,
+    fragment_charge_yields,
+    charge_moments,
+    even_odd_factors,
+    effective_charge_distribution,
+    Wahl1988,
+    WAHL_1988,
+    WAHL_1988_TABLE_A,
+    wahl_1988,
+    charge_model
 export WahlSystematics,
     WAHL_LOW_ENERGY,
     WAHL_VALIDITY,
     is_wahl_applicable,
     wahl_polarization,
     wahl_dispersion,
-    wahl_even_odd_factors,
-    wahl_charge_yield,
-    wahl_charge_distribution,
-    WahlReactionParameters,
-    WAHL_PER_REACTION,
-    wahl_reaction_parameters,
-    build_charge_distribution
+    wahl_even_odd_factors
 export Fragmentation,
     FragmentationDomain,
     fragmentation_domain,
@@ -166,12 +176,13 @@ include("nuclides.jl")
 include("tables.jl")
 include("masses.jl")
 include("charge.jl")
+include("zp.jl")
 include("domain.jl")
 include("leveldensity.jl")
 include("energetics.jl")
 include("temperature_ratio.jl")
 include("wahl.jl")
-include("wahl_reactions.jl")
+include("wahl1988.jl")
 include("yields.jl")
 include("averaging.jl")
 include("curves.jl")

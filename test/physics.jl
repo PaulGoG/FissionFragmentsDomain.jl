@@ -95,3 +95,7 @@ function read_reference(name::AbstractString, columns::Vector{Symbol}, keys::Int
     end
     return reference
 end
+
+"The unit-interval integral of a normalised Gaussian, the lattice form of Wahl's eq. (7)."
+erf_interval(Z, Zₚ, σ) =
+    0.5 * (erf((Z - Zₚ + 0.5) / (σ * sqrt(2))) - erf((Z - Zₚ - 0.5) / (σ * sqrt(2))))

@@ -1,5 +1,15 @@
 """
-    ChargeDistribution
+    ChargeModel
+
+A source of the isobaric charge distribution `p(Z | A)` of primary fission fragments: a tabulated
+Gaussian, [`ChargeDistribution`](@ref), or a [`ZpModel`](@ref). The fragmentation domain, the
+fragment yields and the averages take either through
+[`fragment_most_probable_charge`](@ref) and [`fragment_charge_probability`](@ref).
+"""
+abstract type ChargeModel end
+
+"""
+    ChargeDistribution <: ChargeModel
 
 Charge polarization `ΔZ(A)` and dispersion `σ_Z(A)` of the isobaric charge distribution, indexed
 by fragment mass number, with the values used where a mass is not tabulated. The defaults
@@ -7,7 +17,7 @@ by fragment mass number, with the values used where a mass is not tabulated. The
 available for the fission case. `ΔZ` is quoted for the heavy fragment and carries the opposite
 sign for the light one.
 """
-struct ChargeDistribution
+struct ChargeDistribution <: ChargeModel
     ΔZ::Dict{Int, Float64}
     σ_Z::Dict{Int, Float64}
     default_ΔZ::Float64
@@ -180,4 +190,39 @@ function charge_numbers(Zₚ::Real, count::Integer)
     centre = round(Int, Zₚ)
     half = (count - 1) ÷ 2
     return (centre - half):(centre + half)
+end
+
+"""
+    fragment_most_probable_charge(model, system, A) -> Float64
+
+`Zₚ` for a fragment of mass `A`, heavy or light. A [`ChargeDistribution`](@ref) quotes `ΔZ` for
+the heavy side, so a light fragment takes `Z₀ − Zₚ` of its complement.
+"""
+function fragment_most_probable_charge(
+    distribution::ChargeDistribution,
+    system::FissioningSystem,
+    A::Integer,
+)
+    A_heavy = max(A, system.compound.A - A)
+    Zₚ_heavy =
+        most_probable_charge(system, A_heavy, charge_polarization(distribution, A_heavy))
+    return A == A_heavy ? Zₚ_heavy : system.compound.Z - Zₚ_heavy
+end
+
+"""
+    fragment_charge_probability(model, system, fragment) -> Float64
+
+`p(Z | A)` for one fragment, evaluated against the `Zₚ` of its own mass. For a
+[`ChargeDistribution`](@ref) this is the Gaussian density of [`charge_probability`](@ref) with
+the dispersion of the heavy mass; for a [`ZpModel`](@ref), the fragment-level yield of
+[`fragment_charge_yields`](@ref).
+"""
+function fragment_charge_probability(
+    distribution::ChargeDistribution,
+    system::FissioningSystem,
+    fragment::Nuclide,
+)
+    A_heavy = max(fragment.A, system.compound.A - fragment.A)
+    Zₚ = fragment_most_probable_charge(distribution, system, fragment.A)
+    return charge_probability(fragment.Z, Zₚ, charge_dispersion(distribution, A_heavy))
 end

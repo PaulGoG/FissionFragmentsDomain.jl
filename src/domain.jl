@@ -71,20 +71,20 @@ function Base.show(io::IO, domain::FragmentationDomain)
 end
 
 """
-    fragmentation_domain(system, distribution, heavy_masses; charges_per_mass = 5,
+    fragmentation_domain(system, model, heavy_masses; charges_per_mass = 5,
                          zero_polarization_at_symmetry = false) -> FragmentationDomain
 
 Build the fragmentation domain: heavy masses from symmetric fission to a maximum asymmetry in
-steps of one mass unit, each carrying an odd number of charge numbers centred on
-`Zₚ(A) = Z_UCD(A) + ΔZ(A)`, weighted by the isobaric charge distribution. `heavy_masses` is
+steps of one mass unit, each carrying an odd number of charge numbers centred on `Zₚ(A)`, weighted
+by the isobaric charge distribution of `model`, a [`ChargeModel`](@ref). `heavy_masses` is
 validated against the compound nucleus, the nucleus that splits.
 
 At `A_H = A₀/2` the two fragments of a split have the same mass, and a charge polarization has
-nothing to distinguish. `zero_polarization_at_symmetry = true` takes `ΔZ = 0` there whatever the
-distribution gives. The retained charges are then invariant under `Z → Z₀ − Z` for even `Z₀`,
-and the identities `a_L/a_H = 1` and `R_T = 1` hold exactly at symmetry; see
+nothing to distinguish. `zero_polarization_at_symmetry = true` takes `ΔZ = 0` there whatever a
+[`ChargeDistribution`](@ref) gives. The retained charges are then invariant under `Z → Z₀ − Z`
+for even `Z₀`, and the identities `a_L/a_H = 1` and `R_T = 1` hold exactly at symmetry; see
 [`symmetric_charge_set_is_invariant`](@ref). The default, `false`, uses the tabulated `ΔZ(A₀/2)`
-as given.
+as given. A [`ZpModel`](@ref) ignores the option: its `ΔZ` at symmetry is part of the model.
 
 # Examples
 
@@ -102,7 +102,7 @@ Nuclide(Z=46, A=126)
 """
 function fragmentation_domain(
     system::FissioningSystem,
-    distribution::ChargeDistribution,
+    distribution::ChargeModel,
     heavy_masses::AbstractUnitRange{<:Integer};
     charges_per_mass::Integer = 5,
     zero_polarization_at_symmetry::Bool = false,
@@ -133,11 +133,8 @@ function fragmentation_domain(
     entries = Fragmentation[]
     sizehint!(entries, length(heavy_masses) * charges_per_mass)
     for A_heavy in heavy_masses
-        ΔZ =
-            zero_polarization_at_symmetry && 2 * A_heavy == system.compound.A ? 0.0 :
-            charge_polarization(distribution, A_heavy)
-        σ_Z = charge_dispersion(distribution, A_heavy)
-        Zₚ = most_probable_charge(system, A_heavy, ΔZ)
+        Zₚ, σ_Z =
+            _heavy_centre(distribution, system, A_heavy, zero_polarization_at_symmetry)
         for Z_heavy in charge_numbers(Zₚ, charges_per_mass)
             # Both fragments must carry protons; a wide charge window or a Zₚ near the edge of
             # the range can leave one fragment with none.
@@ -152,7 +149,11 @@ function fragmentation_domain(
             light = complementary_fragment(system, heavy)
             push!(
                 entries,
-                Fragmentation(heavy, light, charge_probability(Z_heavy, Zₚ, σ_Z)),
+                Fragmentation(
+                    heavy,
+                    light,
+                    _pair_probability(distribution, system, heavy, Zₚ, σ_Z),
+                ),
             )
         end
     end
@@ -165,6 +166,29 @@ function fragmentation_domain(
         Int(charges_per_mass),
     )
 end
+
+# The centre of the heavy fragment's charge window and, for a tabulated Gaussian, its width.
+function _heavy_centre(
+    distribution::ChargeDistribution,
+    system::FissioningSystem,
+    A_heavy::Integer,
+    zero_polarization_at_symmetry::Bool,
+)
+    ΔZ =
+        zero_polarization_at_symmetry && 2 * A_heavy == system.compound.A ? 0.0 :
+        charge_polarization(distribution, A_heavy)
+    return most_probable_charge(system, A_heavy, ΔZ),
+    charge_dispersion(distribution, A_heavy)
+end
+
+_heavy_centre(model::ZpModel, system::FissioningSystem, A_heavy::Integer, ::Bool) =
+    fragment_most_probable_charge(model, system, A_heavy), NaN
+
+_pair_probability(::ChargeDistribution, ::FissioningSystem, heavy::Nuclide, Zₚ, σ_Z) =
+    charge_probability(heavy.Z, Zₚ, σ_Z)
+
+_pair_probability(model::ZpModel, system::FissioningSystem, heavy::Nuclide, _, _) =
+    fragment_charge_probability(model, system, heavy)
 
 """
     fragments(domain) -> Vector{Nuclide}

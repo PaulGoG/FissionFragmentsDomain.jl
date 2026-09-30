@@ -116,39 +116,33 @@ end
     end
 end
 
-@testset "Wahl systematics as a charge distribution" begin
+@testset "Wahl systematics as a charge model" begin
     table = mass_table()
     system = neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth")
-    distribution = wahl_charge_distribution(table, system, 118:160)
-    @test distribution !== nothing
-    @test charge_polarization(distribution, 140) ≈
-          wahl_polarization(WahlSystematics(table, system), 140) rtol = RTOL
-    # The tabulated dispersion is on the lattice footing of Wahl eq. (8), not the model's own
-    # sigma_Z, because that is what an evaluated table carries and what this package reads.
-    @test charge_dispersion(distribution, 140) >
-          wahl_dispersion(WahlSystematics(table, system), 140)
+    systematics = WahlSystematics(table, system)
+    @test systematics isa ZpModel
+    @test charge_polarization(systematics, 140) == wahl_polarization(systematics, 140)
+    @test charge_dispersion(systematics, 140) == wahl_dispersion(systematics, 140)
 
-    # It is the same type a tabulated file produces, so every consumer is unchanged, and a mass
-    # outside the tabulated range still falls back to the conventional means.
-    @test distribution isa ChargeDistribution
-    @test charge_polarization(distribution, 300) == -0.5
-    @test charge_dispersion(distribution, 300) == 0.6
-    @test occursin("LA-13928", sprint(show, MIME"text/plain"(), distribution.source))
+    # The light side is the complement, eqs. (9c) and (9d).
+    @test most_probable_charge(systematics, 100) ≈
+          92 - most_probable_charge(systematics, 136) rtol = RTOL
+    @test charge_dispersion(systematics, 100) == charge_dispersion(systematics, 136)
+
+    # Reduced to a plain Gaussian per mass, the width is the lattice second moment, above σ_Z.
+    effective = effective_charge_distribution(systematics, 118:160)
+    @test effective isa ChargeDistribution
+    @test charge_dispersion(effective, 140) > wahl_dispersion(systematics, 140)
+    @test charge_polarization(effective, 300) == -0.5
 
     # The precursor excitation energy of a thermal capture is Sₙ of the compound nucleus, so the
     # systematics built from the system agrees with the one built from that number by hand.
     excitation = value(compound_nucleus_excitation(table, system))
-    @test WahlSystematics(table, system).PE ≈ excitation rtol = RTOL
-    @test WahlSystematics(92, 236, excitation).ΔZ140 ≈ WahlSystematics(table, system).ΔZ140 rtol =
-        RTOL
-
-    # Spontaneous fission enters at zero excitation.
+    @test systematics.PE ≈ excitation rtol = RTOL
+    @test WahlSystematics(92, 236, excitation).ΔZ140 ≈ systematics.ΔZ140 rtol = RTOL
     @test WahlSystematics(table, spontaneous_fission(Nuclide(98, 252))).PE == 0.0
-
-    @test_throws ArgumentError wahl_charge_distribution(
-        WahlSystematics(92, 236, 6.5),
-        Int[],
-    )
+    @test WahlSystematics(table, system; neutron_pairing = true).neutron_pairing
+    @test_throws ArgumentError effective_charge_distribution(systematics, Int[])
 end
 
 guarded(CHARGE_DISTRIBUTION_AVAILABLE, "Wahl systematics against the evaluated tables") do
@@ -261,82 +255,54 @@ end
     @test wahl_even_odd_factors(w, w.B5 + 5)[1] > peak[1]
     @test wahl_even_odd_factors(w, w.B6 + 1e-8) == peak
 
-    # The yields are a Gaussian modulated by F and renormalized, so they sum to one, and the
-    # modulation alternates with the parity of Z.
-    numbers, yields = wahl_charge_yield(w, 140, 11)
-    @test length(numbers) == 11
+    # Eq. (9): the Gaussian integrated over unit charge intervals, modulated by F and
+    # renormalized, so the yields sum to one, and the modulation follows the parity of Z. The
+    # product-level form carries both factors; at A even the parities of Z and N move together.
+    numbers, yields = fractional_independent_yields(w, 140, 0.0)
     @test sum(yields) ≈ 1.0 atol = 1e-12
-    @test all(>(0), yields)
-    plain = [
-        charge_probability(
-            Z,
-            140 * 92 / 236 + wahl_polarization(w, 140),
-            wahl_dispersion(w, 140),
-        ) for Z in numbers
-    ]
+    @test all(>=(0), yields)
+    Zₚ = most_probable_charge(w, 140)
+    σ = wahl_dispersion(w, 140)
+    plain = [erf_interval(Z, Zₚ, σ) for Z in numbers]
     plain ./= sum(plain)
     ratio = yields ./ plain
-    # Even Z is enhanced relative to the bare Gaussian and odd Z suppressed, at A even where
-    # the parities of Z and N move together.
-    @test all(ratio[i] > 1 for i in eachindex(numbers) if iseven(numbers[i]))
-    @test all(ratio[i] < 1 for i in eachindex(numbers) if isodd(numbers[i]))
-
-    @test_throws ArgumentError wahl_charge_yield(w, 140, 0)
+    inside = [i for i in eachindex(numbers) if plain[i] > 1e-6]
+    @test all(ratio[i] > 1 for i in inside if iseven(numbers[i]))
+    @test all(ratio[i] < 1 for i in inside if isodd(numbers[i]))
+    # And the lattice form, not the density: the second moment is σ² + 1/12 without the factors.
+    flat = [erf_interval(Z, 54.3, 0.566) for Z in 40:70]
+    flat ./= sum(flat)
+    @test charge_moments(collect(40:70), flat)[2] ≈ sqrt(0.566^2 + 1 / 12) rtol = 1e-3
     @test_throws ArgumentError wahl_even_odd_factors(w, 100)
 end
 
 guarded(
-    U235_POLARIZATION_AVAILABLE,
-    "the even-odd option reproduces the ripple, not the baseline",
+    CHARGE_DISTRIBUTION_AVAILABLE && U235_POLARIZATION_AVAILABLE,
+    "the 1988 model is the closest of the layers to the supplied tables",
 ) do
-    @testset "the even-odd option reproduces the ripple, not the baseline" begin
+    @testset "the 1988 model is the closest of the layers to the supplied tables" begin
+        # The supplied tables are of the same lineage as Wahl (1988) but not a reproduction of
+        # it. Reduced to effective Gaussians, the 1988 model at fragment level lies within a few
+        # hundredths of them in both ΔZ and width, and nearer than the systematics everywhere.
         table = mass_table()
-        system = neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth")
-        masses = 126:160
-        bare = wahl_charge_distribution(table, system, masses)
-        folded = wahl_charge_distribution(table, system, masses; even_odd = true)
-        evaluated = read_charge_distribution(U235_CHARGE_DISTRIBUTION_FILE)
-
-        # The bare systematics is smooth in each region; folding the factors in makes it ripple,
-        # with an amplitude close to what the evaluated table carries.
-        span(d) = begin
-            v = [charge_dispersion(d, A) - charge_dispersion(bare, A) for A in masses]
-            maximum(v) - minimum(v)
+        for (path, system, bound) in (
+            (
+                U235_CHARGE_DISTRIBUTION_FILE,
+                neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth"),
+                0.035,
+            ),
+            (CF252_CHARGE_DISTRIBUTION_FILE, spontaneous_fission(Nuclide(98, 252)), 0.025),
+        )
+            evaluated = read_charge_distribution(path)
+            masses = sort([A for A in keys(evaluated.σ_Z) if 2A >= system.compound.A])
+            reaction = effective_charge_distribution(charge_model(table, system), masses)
+            systematics =
+                effective_charge_distribution(WahlSystematics(table, system), masses)
+            mad(d, f) = sum(abs(f(d, A) - f(evaluated, A)) for A in masses) / length(masses)
+            @test mad(reaction, charge_polarization) < bound
+            @test mad(reaction, charge_dispersion) < bound
+            @test mad(reaction, charge_polarization) < mad(systematics, charge_polarization)
+            @test mad(reaction, charge_dispersion) < mad(systematics, charge_dispersion)
         end
-        @test span(bare) == 0.0
-        @test span(folded) > 0.2
-        @test isapprox(span(folded), span(evaluated); rtol = 0.25)
-
-        # And it is the same ripple, not merely one of the same size: the residuals against the
-        # bare systematics are positively correlated over the peak region.
-        peak = [A for A in masses if A >= 134]
-        model = [charge_dispersion(folded, A) - charge_dispersion(bare, A) for A in peak]
-        truth = [charge_dispersion(evaluated, A) - charge_dispersion(bare, A) for A in peak]
-        centred(x) = x .- sum(x) / length(x)
-        correlation =
-            sum(centred(model) .* centred(truth)) /
-            sqrt(sum(abs2, centred(model)) * sum(abs2, centred(truth)))
-        @test correlation > 0.4
-
-        # It stays a ChargeDistribution, and says in its source that the factors were applied.
-        # They are off by default: the tabulated distributions already carry the effect, so
-        # folding it in on top of one would count it twice.
-        @test folded isa ChargeDistribution
-        @test occursin("even-odd", folded.source)
-        @test !occursin("even-odd", bare.source)
-
-        # And putting the systematics on the table's footing is what makes it a better stand-in:
-        # it moves every mass toward the evaluated table rather than away from it.
-        bare_error = sum(
-            abs(
-                wahl_dispersion(WahlSystematics(table, system), A) -
-                charge_dispersion(evaluated, A),
-            ) for A in masses
-        )
-        lattice_error = sum(
-            abs(charge_dispersion(bare, A) - charge_dispersion(evaluated, A)) for
-            A in masses
-        )
-        @test lattice_error < bare_error
     end
 end

@@ -118,16 +118,23 @@ they return
 which is where the conventional fallbacks of `|0.5|` and `0.6` come from, and is the sense in
 which those fallbacks are not arbitrary.
 
-They are authoritative wherever they exist, and where they do not, the package builds the `Zₚ`
-model from the published parameters rather than reaching for the means. It does so in two layers,
-and the difference between them is which reaction the parameters were fitted to. Table A of the
-1988 paper carries
-least-squares parameters for exactly these four reactions; eq. (17) and Table 2 of LA-13928
-estimate the same parameters from `Z_F`, `A_F` and the excitation energy for any reaction in
-`90 ≤ Z_F ≤ 98`, `230 ≤ A_F ≤ 252`, `PE ≤ 8 MeV`. Fig. 18 of that report quotes a reduced `χ²` of
-2.9 for the first against 7.9 for the second, on ²³⁵U(n_th,f). Neither needs a file: both are in
-`src/wahl.jl` and `src/wahl_reactions.jl`, and `build_charge_distribution` selects whichever the
-system reaches.
+They are authoritative wherever they exist. Where they do not, `charge_model` builds the `Zₚ`
+model from published parameters rather than reaching for the means.
+
+- **The reaction's own parameters.** Table A of the 1988 paper carries least-squares parameters for
+  exactly these four reactions. `Wahl1988` reproduces that evaluation's own calculated tables
+  row by row.
+- **The systematics.** Eq. (17) and Table 2 of LA-13928 estimate the same parameters from `Z_F`,
+  `A_F` and the excitation energy, for any reaction in `90 ≤ Z_F ≤ 98`, `230 ≤ A_F ≤ 252`,
+  `PE ≤ 8 MeV`.
+
+Fig. 18 of LA-13928 quotes a reduced `χ²` of 2.9 for the first against 7.9 for the second, on
+²³⁵U(n_th,f). Neither needs a file.
+
+Reduced to effective Gaussians at fragment mass, the 1988 model comes within a mean absolute
+0.020–0.029 of the supplied tables in `ΔZ` and 0.010–0.030 in width. This is the closest any
+public construction here comes to them, but it is not a reproduction: the tables remain inputs of
+documented lineage.
 
 ## Temperature-ratio run records
 
