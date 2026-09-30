@@ -1,16 +1,37 @@
-guarded(SHELL_CORRECTIONS_AVAILABLE, "shell correction file layout") do
-    @testset "shell correction file layout" begin
-        corrections = read_shell_correction_table(SHELL_CORRECTION_FILE)
+@testset "the shipped shell corrections are Table III as printed" begin
+    corrections = read_shell_correction_table(SHELL_CORRECTION_FILE)
 
-        # The reader takes columns by position, so this guards the shipped file rather than the
-        # reader: the neutron correction comes first, `n S_N S_Z`. The prototype declares the
-        # two the other way round, and because S(Z) is looked up at the proton number while S(N)
-        # is looked up at the neutron number, the swap is not absorbed by their sum.
-        header = split(strip(first(readlines(SHELL_CORRECTION_FILE))))
-        @test header[2] == "S_N"
-        @test header[3] == "S_Z"
-        @test corrections.S_N[11] ≈ 6.80 rtol = RTOL
-        @test corrections.S_Z[11] ≈ -2.91 rtol = RTOL
+    # The reader takes columns by position, so this guards the shipped file rather than the
+    # reader: the neutron correction comes first, `n S_N S_Z`. S(Z) is looked up at the proton
+    # number and S(N) at the neutron number, so a swap would not be absorbed by their sum.
+    @test split(strip(first(readlines(SHELL_CORRECTION_FILE)))) == ["n", "S_N", "S_Z"]
+
+    # Table III tabulates S(N) for N = 11–150 and S(Z) for Z = 11–98. Three independent
+    # transcriptions of pp. 1453–1455 agree in every cell, and their sums fix the file.
+    @test sort(collect(keys(corrections.S_N))) == 11:150
+    @test sort(collect(keys(corrections.S_Z))) == 11:98
+    @test sum(values(corrections.S_N)) ≈ 1496.25 atol = 1e-9
+    @test sum(values(corrections.S_Z)) ≈ -1018.24 atol = 1e-9
+    @test corrections.S_N[11] == 6.80 && corrections.S_Z[11] == -2.91
+    @test corrections.S_N[150] == 5.30 && corrections.S_Z[98] == -7.74
+
+    # The closed shells are local minima of the correction, as a mass-formula shell term must be.
+    for (S, magic) in
+        ((corrections.S_Z, (28, 50, 82)), (corrections.S_N, (28, 50, 82, 126)))
+        for n in magic
+            @test S[n] < S[n - 1] && S[n] < S[n + 1]
+        end
+    end
+
+    # A table in circulation pads S(Z) past Z = 98 with an exact 0.00 where the shipped one has
+    # NaN. Both forms read to the same table.
+    mktempdir() do directory
+        padded = joinpath(directory, "padded.dat")
+        lines = readlines(SHELL_CORRECTION_FILE)
+        write(padded, join(replace.(lines, "NaN" => "0.00"), "\n") * "\n")
+        other = read_shell_correction_table(padded)
+        @test other.S_Z == corrections.S_Z
+        @test other.S_N == corrections.S_N
     end
 end
 
@@ -107,15 +128,13 @@ end
     # Unavailable rather than an error where the neighbouring masses are not tabulated.
     @test level_density_parameter(model, Nuclide(1, 1)) === nothing
 
-    if SHELL_CORRECTIONS_AVAILABLE
-        gilbert = GilbertCameron(read_shell_correction_table(SHELL_CORRECTION_FILE))
-        a_gc = level_density_parameter(gilbert, Nuclide(52, 134))
-        @test a_gc !== nothing
-        @test 0.05 * 134 < a_gc < 0.2 * 134
+    gilbert = GilbertCameron(read_shell_correction_table(SHELL_CORRECTION_FILE))
+    a_gc = level_density_parameter(gilbert, Nuclide(52, 134))
+    @test a_gc !== nothing
+    @test 0.05 * 134 < a_gc < 0.2 * 134
 
-        # Outside the tabulated nucleon numbers the systematics simply has nothing to say.
-        @test level_density_parameter(gilbert, Nuclide(2, 4)) === nothing
-    end
+    # Outside the tabulated nucleon numbers the systematics simply has nothing to say.
+    @test level_density_parameter(gilbert, Nuclide(2, 4)) === nothing
 end
 
 @testset "the Gilbert-Cameron deformed region" begin
@@ -131,37 +150,35 @@ end
     @test !is_deformed_gilbert_cameron(Nuclide(25, 55))    # 20 ≤ Z ≤ 29 follows line I
 end
 
-guarded(SHELL_CORRECTIONS_AVAILABLE, "the two Gilbert-Cameron branches") do
-    @testset "the two Gilbert-Cameron branches" begin
-        gilbert = GilbertCameron(read_shell_correction_table(SHELL_CORRECTION_FILE))
+@testset "the two Gilbert-Cameron branches" begin
+    gilbert = GilbertCameron(read_shell_correction_table(SHELL_CORRECTION_FILE))
 
-        # The branches differ by the intercept alone, 0.142 − 0.120 = 0.022 per nucleon, so the
-        # deformed one is lower by exactly 0.022 A. Checked on a fragment inside the region.
-        deformed = Nuclide(58, 148)
-        @test is_deformed_gilbert_cameron(deformed)
-        a = level_density_parameter(gilbert, deformed)
-        corrections = read_shell_correction_table(SHELL_CORRECTION_FILE)
-        S = corrections.S_Z[58] + corrections.S_N[90]
-        undeformed_value = 148 * (0.00917 * S + 0.142)
-        @test undeformed_value - a ≈ 0.022 * 148 rtol = RTOL
+    # The branches differ by the intercept alone, 0.142 − 0.120 = 0.022 per nucleon, so the
+    # deformed one is lower by exactly 0.022 A. Checked on a fragment inside the region.
+    deformed = Nuclide(58, 148)
+    @test is_deformed_gilbert_cameron(deformed)
+    a = level_density_parameter(gilbert, deformed)
+    corrections = read_shell_correction_table(SHELL_CORRECTION_FILE)
+    S = corrections.S_Z[58] + corrections.S_N[90]
+    undeformed_value = 148 * (0.00917 * S + 0.142)
+    @test undeformed_value - a ≈ 0.022 * 148 rtol = RTOL
 
-        # Roughly a fifth: the size of the correction on the heavy fragment peak.
-        @test 0.15 < (undeformed_value - a) / a < 0.35
+    # Roughly a fifth: the size of the correction on the heavy fragment peak.
+    @test 0.15 < (undeformed_value - a) / a < 0.35
 
-        # Selecting eq. (20) alone reverts to the single-branch behaviour, which is what the
-        # published results of this method used and what the companion package implements.
-        undeformed = GilbertCameron(
-            read_shell_correction_table(SHELL_CORRECTION_FILE);
-            deformed_branch = false,
-        )
-        @test level_density_parameter(undeformed, deformed) ≈ undeformed_value rtol = RTOL
-        @test level_density_parameter(undeformed, Nuclide(40, 100)) ≈
-              level_density_parameter(gilbert, Nuclide(40, 100)) rtol = RTOL
+    # Selecting eq. (20) alone reverts to the single-branch behaviour, which is what the
+    # published results of this method used and what the companion package implements.
+    undeformed = GilbertCameron(
+        read_shell_correction_table(SHELL_CORRECTION_FILE);
+        deformed_branch = false,
+    )
+    @test level_density_parameter(undeformed, deformed) ≈ undeformed_value rtol = RTOL
+    @test level_density_parameter(undeformed, Nuclide(40, 100)) ≈
+          level_density_parameter(gilbert, Nuclide(40, 100)) rtol = RTOL
 
-        # Z ≥ 99 has no tabulated S(Z). The file pads it with zeros; the reader must not store
-        # them, or the systematics silently answers where the paper says nothing.
-        # Both have a tabulated S(N); they differ only in whether S(Z) exists.
-        @test level_density_parameter(gilbert, Nuclide(99, 240)) === nothing
-        @test level_density_parameter(gilbert, Nuclide(98, 240)) !== nothing
-    end
+    # Z ≥ 99 has no tabulated S(Z). The reader must not store a value there, or the systematics
+    # silently answers where the paper says nothing.
+    # Both have a tabulated S(N); they differ only in whether S(Z) exists.
+    @test level_density_parameter(gilbert, Nuclide(99, 240)) === nothing
+    @test level_density_parameter(gilbert, Nuclide(98, 240)) !== nothing
 end

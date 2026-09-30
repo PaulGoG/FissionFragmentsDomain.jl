@@ -1,8 +1,9 @@
 # Data
 
-One table ships with this package: `reference/mass_excess_ame2020.dat`, reached as
-`AME2020_MASS_EXCESS_FILE`. Every other table the readers accept is third-party data that this
-package does not redistribute. It belongs in the data directory of the calculation that consumes
+Two tables ship with this package: `reference/mass_excess_ame2020.dat`, reached as
+`AME2020_MASS_EXCESS_FILE`, and `reference/shell_corrections_gilbert_cameron_1965.dat`, reached as
+`GILBERT_CAMERON_SHELL_CORRECTION_FILE`. Every other table the readers accept is third-party data
+that this package does not redistribute. It belongs in the data directory of the calculation that consumes
 it, laid out as below; the readers take any path.
 
 ## Layout
@@ -11,7 +12,7 @@ it, laid out as below; the readers take any path.
 data/
 ├── reference/                      evaluations that belong to no one system
 │   ├── mass_excess_ame2020.dat     shipped
-│   └── shell_corrections_gilbert_cameron.dat
+│   └── shell_corrections_gilbert_cameron_1965.dat   shipped
 └── <system>/                       Cf252_sf, U235_nth, …, the token of system_label
     ├── charge_distribution_vs_A.dat
     ├── Y_vs_A_TKE.dat
@@ -126,3 +127,22 @@ other field. The `columns` the manifest states are documentation: tables are rea
 The `[system]` table is `system_record` of the system the extraction ran for. The level density
 parameter ratio that produced `R_T` must be averaged over the charge distribution in the same
 order as the partition that applies it; see `RatioAveraging`.
+
+## Gilbert–Cameron shell corrections
+
+`reference/shell_corrections_gilbert_cameron_1965.dat` is Table III, "Pairing energies and shell
+corrections", of A. Gilbert and A. G. W. Cameron, *Can. J. Phys.* **43**, 1446 (1965),
+pp. 1453–1455, doi:10.1139/p65-139. It holds the shell corrections `S(N)` for `N = 11–150` and
+`S(Z)` for `Z = 11–98`, in MeV, with the paper's two decimals. The paper tabulates no `S(Z)` past
+`Z = 98`, and those cells read `NaN`. The pairing energies `P(Z)`, `P(N)` of the same table are
+not used by the level density parameter and are not shipped.
+
+The corrections are the residuals of the semi-empirical mass formula of Cameron and Elkin (1965),
+split into a function of `Z` and a function of `N`. The paper states them good to about 200 keV
+(p. 1455).
+
+The table was transcribed three times independently from page images of the printed article,
+reading row by row, column by column, and even rows before odd ones. The three agree in every
+cell. Checks: `Σ S(N) = 1496.25 MeV` over 140 values, `Σ S(Z) = −1018.24 MeV` over 88 values, and
+the closed shells `Z = 28, 50, 82` and `N = 28, 50, 82, 126` are local minima. A copy that pads
+`S(Z)` past `Z = 98` with `0.00` reads to the same table.

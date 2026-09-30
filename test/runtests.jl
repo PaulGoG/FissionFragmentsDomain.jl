@@ -4,8 +4,6 @@ using Measurements: Measurement, measurement, value, uncertainty
 using SpecialFunctions: erf
 using FissionFragmentsDomain
 
-const DATA =
-    get(ENV, "FISSION_FRAGMENTS_DOMAIN_TEST_DATA", joinpath(@__DIR__, "..", "data"))
 const REFERENCE = joinpath(@__DIR__, "references", "Cf252_sf")
 
 include("physics.jl")
@@ -46,5 +44,3 @@ include("physics.jl")
         )
     end
 end
-
-isempty(SKIPPED) || @info "testsets skipped for absent input data" SKIPPED

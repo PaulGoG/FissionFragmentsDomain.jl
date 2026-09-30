@@ -5,36 +5,14 @@ const CF252_HEAVY_MASSES = 126:174
 const CF252_TKE = 130.0:2.0:230.0
 const CF252_CHARGES_PER_MASS = 5
 
-# Every fixture rests on a public source: the shipped AME2020 table, and for the charge
-# distribution Wahl's 1988 model of ²⁵²Cf(sf), which reproduces that evaluation's own tables.
-# The Gilbert–Cameron shell corrections are not shipped; the tests that need them read a data
-# directory laid out as `data/README.md` describes, taken from `FISSION_FRAGMENTS_DOMAIN_TEST_DATA`
-# when set, and are skipped when the file is absent.
+# Every fixture rests on a public source shipped with the package: the AME2020 table, Table III
+# of Gilbert and Cameron (1965), and for the charge distribution Wahl's 1988 model of ²⁵²Cf(sf),
+# which reproduces that evaluation's own tables.
 const MASS_EXCESS_FILE = String(AME2020_MASS_EXCESS_FILE)
-const SHELL_CORRECTION_FILE =
-    joinpath(DATA, "reference", "shell_corrections_gilbert_cameron.dat")
-const SHELL_CORRECTIONS_AVAILABLE = isfile(SHELL_CORRECTION_FILE)
+const SHELL_CORRECTION_FILE = String(GILBERT_CAMERON_SHELL_CORRECTION_FILE)
 
 # Relative tolerance of `isapprox` between Float64 operands when none is given.
 const RTOL = sqrt(eps(Float64))
-
-# Names of the testsets not run because their input data is absent.
-const SKIPPED = String[]
-
-"""
-    guarded(flag, name, body)
-
-Run `body()` when `flag` holds; otherwise record `name` in `SKIPPED`, so that a testset gated on
-absent input data is reported at the end of the run rather than omitted without trace.
-
-The method taking `body` first serves the `do`-block form, `guarded(flag, name) do … end`.
-"""
-function guarded(flag::Bool, name::AbstractString, body::Function)
-    flag ? body() : push!(SKIPPED, String(name))
-    return nothing
-end
-
-guarded(body::Function, flag::Bool, name::AbstractString) = guarded(flag, name, body)
 
 mass_table() = read_mass_excess_table(MASS_EXCESS_FILE)
 

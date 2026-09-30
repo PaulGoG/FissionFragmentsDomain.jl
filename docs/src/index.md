@@ -19,4 +19,5 @@ averages over them, and the curves a temperature-ratio extraction hands on.
 ```@docs
 FissionFragmentsDomain
 AME2020_MASS_EXCESS_FILE
+GILBERT_CAMERON_SHELL_CORRECTION_FILE
 ```

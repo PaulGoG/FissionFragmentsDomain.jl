@@ -103,6 +103,7 @@ export Energetics,
     fragment_energy_per_nucleon
 export LevelDensityModel,
     LEVEL_DENSITY_MODELS,
+    GILBERT_CAMERON_SHELL_CORRECTION_FILE,
     ShellCorrectionTable,
     read_shell_correction_table,
     GilbertCameron,
@@ -180,6 +181,32 @@ julia> length(read_mass_excess_table(AME2020_MASS_EXCESS_FILE))
 """
 const AME2020_MASS_EXCESS_FILE =
     @path joinpath(@__DIR__, "..", "data", "reference", "mass_excess_ame2020.dat")
+
+"""
+    GILBERT_CAMERON_SHELL_CORRECTION_FILE
+
+The shipped shell corrections of Gilbert and Cameron, Table III of *Can. J. Phys.* **43**, 1446
+(1965), pp. 1453–1455, doi:10.1139/p65-139: `S(N)` for `N = 11–150` and `S(Z)` for
+`Z = 11–98`, in MeV, as printed. Rows past `Z = 98`, where the paper tabulates no `S(Z)`, carry
+`NaN` in that column. The transcription and its checks are in `data/README.md`. The path survives
+relocation of the package, like [`AME2020_MASS_EXCESS_FILE`](@ref).
+
+# Examples
+
+```jldoctest
+julia> corrections = read_shell_correction_table(GILBERT_CAMERON_SHELL_CORRECTION_FILE);
+
+julia> corrections.S_Z[50], corrections.S_N[82]
+(-19.83, 9.09)
+```
+"""
+const GILBERT_CAMERON_SHELL_CORRECTION_FILE = @path joinpath(
+    @__DIR__,
+    "..",
+    "data",
+    "reference",
+    "shell_corrections_gilbert_cameron_1965.dat",
+)
 
 # The version of this package, read once when it is compiled, for the run records it writes.
 const PACKAGE_VERSION =

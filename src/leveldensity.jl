@@ -61,16 +61,19 @@ function read_shell_correction_table(
     neutron = column(table, :S_N, Float64)
     proton = column(table, :S_Z, Float64)
 
-    # `S(Z)` is tabulated to Z = 98 and `S(N)` to N = 150; the proton column is padded with an
-    # exact 0.00 from 99 on. No tabulated `S(Z)` is zero, so the padding is dropped and
-    # `GilbertCameron` declines Z ≥ 99 instead of applying a zero correction.
-    last_proton = something(findlast(!iszero, proton), 0)
+    # Table III tabulates `S(Z)` to Z = 98 and `S(N)` to N = 150. The shipped file marks the
+    # untabulated proton cells `NaN`; tables in circulation pad them with an exact 0.00 instead.
+    # No tabulated `S(Z)` is zero, so trailing zeros are dropped as padding, and either way
+    # `GilbertCameron` declines Z ≥ 99 rather than applying a correction the paper does not give.
+    last_proton = something(findlast(value -> isfinite(value) && !iszero(value), proton), 0)
 
     protons = Dict{Int, Float64}()
     neutrons = Dict{Int, Float64}()
     for row in eachindex(nucleons)
-        row <= last_proton && (protons[nucleons[row]] = proton[row])
-        neutrons[nucleons[row]] = neutron[row]
+        row <= last_proton &&
+            isfinite(proton[row]) &&
+            (protons[nucleons[row]] = proton[row])
+        isfinite(neutron[row]) && (neutrons[nucleons[row]] = neutron[row])
     end
     return ShellCorrectionTable(protons, neutrons, String(path))
 end

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.6] - 2026-09-30
+
+- The Gilbert–Cameron shell corrections ship with the package as
+  `GILBERT_CAMERON_SHELL_CORRECTION_FILE`: Table III of the 1965 paper, pp. 1453–1455,
+  transcribed three times independently with the transcriptions agreeing in every cell. `S(Z)`
+  past `Z = 98`, which the paper does not tabulate, is `NaN`. The reader treats a non-finite cell
+  as untabulated, as it already treated trailing zero padding.
+- Every test runs on a fresh clone. `FISSION_FRAGMENTS_DOMAIN_TEST_DATA` and the skipped-testset
+  report are gone with the last test that needed them.
+
 ## [0.1.5] - 2026-09-30
 
 - `ManifestDomain` records whether the Gilbert–Cameron formula took its deformed branch,

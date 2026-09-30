@@ -64,13 +64,9 @@ julia check.jl                     # format, then run the tests
 julia docs/make.jl                 # build the documentation into docs/build
 ```
 
-Every test rests on a public source shipped with the package, except two that need the
-Gilbert–Cameron shell-correction table. Those read a data directory laid out as `data/README.md`
-describes, and are reported as skipped where it is absent:
-
-```bash
-FISSION_FRAGMENTS_DOMAIN_TEST_DATA=/path/to/data julia check.jl
-```
+Every test rests on a public source shipped with the package: the AME2020 mass table, the
+Gilbert–Cameron shell corrections and Wahl's 1988 charge model, so a fresh clone runs the whole
+suite.
 
 ```julia
 using FissionFragmentsDomain
@@ -91,7 +87,7 @@ temperature_ratio(ChargeResolved(), model, domain, 140, 0.45)          # R_T fro
 | Systems, masses, `Q` | complete; AME2020 shipped |
 | Charge distribution | evaluated tables; Wahl (1988) for its four reactions, reproducing its Tables I–IV row by row; Wahl (2002) systematics, low-energy branch; conventional means |
 | Fragmentation domain | complete; optional zero polarization at the symmetric split |
-| Level density | back-shifted Fermi gas (von Egidy–Bucurescu), Gilbert–Cameron with its deformed branch |
+| Level density | back-shifted Fermi gas (von Egidy–Bucurescu); Gilbert–Cameron with its deformed branch, its Table III shell corrections shipped |
 | Temperature ratio | forward and inverse relation, charge-resolved (optionally excitation-weighted) or through an effective `R_a` in either averaging order; run record with its domain, read and written |
 | Yields | joint `Y(A, TKE)`, factorized reconstruction, `Y(A)` |
 | Run records | reader; the writer follows with the rebuilt producer |
@@ -104,7 +100,7 @@ FissionFragmentsDomain.jl/
 ├── .github/                 CI workflow and Dependabot configuration
 ├── data/
 │   ├── README.md             reader formats, provenance, lineage of the charge tables
-│   └── reference/mass_excess_ame2020.dat
+│   └── reference/            mass_excess_ame2020.dat, shell_corrections_gilbert_cameron_1965.dat
 ├── docs/
 │   ├── make.jl, activate.jl, Project.toml
 │   └── src/                  index, system, fragmentation, energetics, yields, curves,

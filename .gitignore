@@ -21,3 +21,4 @@ LocalPreferences.toml
 .idea/
 *~
 .DS_Store
+!/data/reference/shell_corrections_gilbert_cameron_1965.dat
