@@ -117,6 +117,130 @@ function Base.show(io::IO, system::ManifestSystem)
 end
 
 """
+    ManifestDomain
+
+The fragmentation domain an extraction of `R_T(A_H)` was computed on, as its `[domain]` table
+records it: the level density model (`level_density_model`, one of
+[`LEVEL_DENSITY_MODELS`](@ref)), how the level density ratio entered the inversion
+(`ratio_averaging`, one of [`RATIO_AVERAGINGS`](@ref)), the charges retained per mass
+(`charges_per_mass`, odd and positive), the charge model (`charge_model`, as
+[`charge_model_label`](@ref) spells it), the mass table (`mass_table`, the file name of its
+source), the version of this package (`package_version`), and whether a charge-resolved
+inversion weighted each fragmentation by its mean total excitation (`excitation_weighted`, see
+[`ChargeResolved`](@ref); `false` when the table omits it). A consumer that partitions the
+excitation energy on a different domain does not invert the same relation.
+"""
+struct ManifestDomain
+    level_density_model::String
+    ratio_averaging::String
+    charges_per_mass::Int
+    charge_model::String
+    mass_table::String
+    package_version::String
+    excitation_weighted::Bool
+
+    function ManifestDomain(
+        level_density_model::AbstractString,
+        ratio_averaging::AbstractString,
+        charges_per_mass::Integer,
+        charge_model::AbstractString,
+        mass_table::AbstractString,
+        package_version::AbstractString,
+        excitation_weighted::Bool = false,
+    )
+        level_density_model in LEVEL_DENSITY_MODELS ||
+            throw(ArgumentError("[domain] level_density_model must be one of \
+                 $(join(map(repr, LEVEL_DENSITY_MODELS), ", ")), got \
+                 $(repr(level_density_model))"))
+        ratio_averaging in RATIO_AVERAGINGS || throw(
+            ArgumentError(
+                "[domain] ratio_averaging must be one of \
+                 $(join(map(repr, RATIO_AVERAGINGS), ", ")), got $(repr(ratio_averaging))",
+            ),
+        )
+        (charges_per_mass > 0 && isodd(charges_per_mass)) || throw(
+            ArgumentError(
+                "[domain] charges_per_mass must be odd and positive, got $charges_per_mass",
+            ),
+        )
+        isempty(charge_model) &&
+            throw(ArgumentError("[domain] charge_model must not be empty"))
+        isempty(mass_table) && throw(ArgumentError("[domain] mass_table must not be empty"))
+        isempty(package_version) &&
+            throw(ArgumentError("[domain] package_version must not be empty"))
+        excitation_weighted &&
+            ratio_averaging != "charge_resolved" &&
+            throw(
+                ArgumentError(
+                    "[domain] excitation_weighted applies to ratio_averaging = \"charge_resolved\" \
+                 only, got $(repr(ratio_averaging))",
+                ),
+            )
+        return new(
+            String(level_density_model),
+            String(ratio_averaging),
+            Int(charges_per_mass),
+            String(charge_model),
+            String(mass_table),
+            String(package_version),
+            excitation_weighted,
+        )
+    end
+end
+
+"""
+    ManifestDomain(model, averaging, domain, charge, masses) -> ManifestDomain
+
+The `[domain]` record of an extraction computed with the level density model `model`, the ratio
+averaging `averaging`, on the fragmentation domain `domain` built from the charge model `charge`
+and the mass table `masses`, by the version of this package that is loaded.
+"""
+function ManifestDomain(
+    model::LevelDensityModel,
+    averaging::RatioAveraging,
+    domain::FragmentationDomain,
+    charge::ChargeModel,
+    masses::MassExcessTable,
+)
+    return ManifestDomain(
+        level_density_label(model),
+        ratio_averaging_label(averaging),
+        domain.charges_per_mass,
+        charge_model_label(charge),
+        basename(masses.source),
+        string(pkgversion(@__MODULE__)),
+        averaging isa ChargeResolved && averaging.excitation !== nothing,
+    )
+end
+
+Base.:(==)(a::ManifestDomain, b::ManifestDomain) =
+    all(getfield(a, f) == getfield(b, f) for f in fieldnames(ManifestDomain))
+
+Base.hash(domain::ManifestDomain, h::UInt) = hash(
+    ntuple(i -> getfield(domain, i), fieldcount(ManifestDomain)),
+    hash(ManifestDomain, h),
+)
+
+function Base.show(io::IO, domain::ManifestDomain)
+    print(
+        io,
+        "ManifestDomain(",
+        domain.level_density_model,
+        ", ",
+        domain.ratio_averaging,
+        ", ",
+        domain.charges_per_mass,
+        " Z per A, ",
+        domain.charge_model,
+        ", ",
+        domain.mass_table,
+        domain.excitation_weighted ? ", excitation-weighted" : "",
+        ")",
+    )
+    return nothing
+end
+
+"""
     TemperatureRatioManifest
 
 The run record a temperature-ratio extraction writes beside its results, and the only route by
@@ -124,7 +248,9 @@ which an `R_T(A_H)` curve enters a run. The manifest declares the tabulated quan
 `R_T` and `r_ν`, which occupy the same column of two files written side by side, cannot be
 confused; each curve is resolved through its `temperature_ratio_file` only. `columns` is recorded
 as stated by the manifest and is not used to locate a column, since readers take columns by
-position. Built by [`read_temperature_ratio_manifest`](@ref).
+position. `domain` holds the optional `[domain]` table, a [`ManifestDomain`](@ref), and is
+`nothing` for manifests written before that table existed. Built by
+[`read_temperature_ratio_manifest`](@ref).
 """
 struct TemperatureRatioManifest
     system::ManifestSystem
@@ -133,6 +259,7 @@ struct TemperatureRatioManifest
     columns::Vector{String}
     curves::Vector{ManifestCurve}
     source::String
+    domain::Union{ManifestDomain, Nothing}
 
     # Concrete argument types, so no `Any`-accepting fallback is generated.
     function TemperatureRatioManifest(
@@ -142,8 +269,36 @@ struct TemperatureRatioManifest
         columns::Vector{String},
         curves::Vector{ManifestCurve},
         source::AbstractString,
+        domain::Union{ManifestDomain, Nothing},
     )
-        return new(system, String(ordinate), abscissa, columns, curves, String(source))
+        return new(
+            system,
+            String(ordinate),
+            abscissa,
+            columns,
+            curves,
+            String(source),
+            domain,
+        )
+    end
+
+    function TemperatureRatioManifest(
+        system::ManifestSystem,
+        ordinate::AbstractString,
+        abscissa::Vector{String},
+        columns::Vector{String},
+        curves::Vector{ManifestCurve},
+        source::AbstractString,
+    )
+        return TemperatureRatioManifest(
+            system,
+            ordinate,
+            abscissa,
+            columns,
+            curves,
+            source,
+            nothing,
+        )
     end
 end
 
@@ -213,6 +368,11 @@ Read and validate the run record of a temperature-ratio extraction. Each check t
   `multiplicity_ratio_pivots_file`, with `kind` drawn from [`MANIFEST_CURVE_KINDS`](@ref).
 - Labels must be distinct, since a label selects a curve.
 - The two files of a curve must be distinct paths, since they hold different quantities.
+- `[domain]` is optional; when present it must be a table carrying `level_density_model`, one
+  of [`LEVEL_DENSITY_MODELS`](@ref), `ratio_averaging`, one of [`RATIO_AVERAGINGS`](@ref), an
+  odd positive integer `charges_per_mass`, and non-empty `charge_model`, `mass_table` and
+  `package_version`; `excitation_weighted`, a Boolean, is optional and admitted only with
+  `ratio_averaging = "charge_resolved"`. Without the table the manifest's `domain` is `nothing`.
 
 `[run] columns` is recorded but not used to locate a column. File paths inside the manifest are
 resolved relative to the manifest's directory; absolute paths are taken as written.
@@ -281,6 +441,72 @@ function read_temperature_ratio_manifest(path::AbstractString)
         _manifest_integer(system_table, "compound_Z", "[system] compound_Z", source),
     )
 
+    # Optional: manifests written before the table existed carry no domain record.
+    domain = nothing
+    if haskey(document, "domain")
+        domain_table = document["domain"]
+        domain_table isa AbstractDict || throw(
+            ArgumentError("$source: [domain] must be a table, got $(typeof(domain_table))"),
+        )
+        fields = (
+            _manifest_value(
+                domain_table,
+                "level_density_model",
+                String,
+                "[domain] level_density_model",
+                source,
+            ),
+            _manifest_value(
+                domain_table,
+                "ratio_averaging",
+                String,
+                "[domain] ratio_averaging",
+                source,
+            ),
+            _manifest_integer(
+                domain_table,
+                "charges_per_mass",
+                "[domain] charges_per_mass",
+                source,
+            ),
+            _manifest_value(
+                domain_table,
+                "charge_model",
+                String,
+                "[domain] charge_model",
+                source,
+            ),
+            _manifest_value(
+                domain_table,
+                "mass_table",
+                String,
+                "[domain] mass_table",
+                source,
+            ),
+            _manifest_value(
+                domain_table,
+                "package_version",
+                String,
+                "[domain] package_version",
+                source,
+            ),
+            haskey(domain_table, "excitation_weighted") ?
+            _manifest_value(
+                domain_table,
+                "excitation_weighted",
+                Bool,
+                "[domain] excitation_weighted",
+                source,
+            ) : false,
+        )
+        domain = try
+            ManifestDomain(fields...)
+        catch err
+            err isa ArgumentError || rethrow()
+            throw(ArgumentError("$source: " * err.msg))
+        end
+    end
+
     haskey(document, "segmented_curve") || throw(
         ArgumentError("$source declares no [[segmented_curve]]; there is no curve to take"),
     )
@@ -337,7 +563,76 @@ function read_temperature_ratio_manifest(path::AbstractString)
         ),
     )
 
-    return TemperatureRatioManifest(system, ordinate, abscissa, columns, curves, source)
+    return TemperatureRatioManifest(
+        system,
+        ordinate,
+        abscissa,
+        columns,
+        curves,
+        source,
+        domain,
+    )
+end
+
+# The run record's tables in reading order; keys within a table alphabetically.
+const _MANIFEST_TABLE_ORDER = ("system", "run", "domain", "segmented_curve")
+_manifest_key_order(key::AbstractString) =
+    (something(findfirst(==(key), _MANIFEST_TABLE_ORDER), 0), key)
+
+"""
+    write_temperature_ratio_manifest(path, manifest::TemperatureRatioManifest) -> String
+
+Write `manifest` as the TOML run record that [`read_temperature_ratio_manifest`](@ref)
+reads: `[system]`, `[run]`, `[domain]` when present, then one `[[segmented_curve]]` per
+curve, file paths as the curves hold them. Refuses to overwrite an existing file, so a run
+record is never lost; returns `path`. What it writes reads back equal, `source` aside.
+"""
+function write_temperature_ratio_manifest(
+    path::AbstractString,
+    manifest::TemperatureRatioManifest,
+)
+    isfile(path) && throw(ArgumentError("$path exists; a run record is not overwritten"))
+    system = manifest.system
+    run_table =
+        Dict{String, Any}("ordinate" => manifest.ordinate, "abscissa" => manifest.abscissa)
+    isempty(manifest.columns) || (run_table["columns"] = manifest.columns)
+    document = Dict{String, Any}(
+        "system" => Dict{String, Any}(
+            "label" => system.label,
+            "notation" => system.notation,
+            "target_A" => system.target_A,
+            "target_Z" => system.target_Z,
+            "channel" => system.channel,
+            "reaction" => system.reaction,
+            "incident_energy_MeV" => system.incident_energy_MeV,
+            "compound_A" => system.compound_A,
+            "compound_Z" => system.compound_Z,
+        ),
+        "run" => run_table,
+        "segmented_curve" => [
+            Dict{String, Any}(
+                "label" => curve.label,
+                "kind" => curve.kind,
+                "temperature_ratio_file" => curve.temperature_ratio_file,
+                "multiplicity_ratio_pivots_file" =>
+                    curve.multiplicity_ratio_pivots_file,
+            ) for curve in manifest.curves
+        ],
+    )
+    domain = manifest.domain
+    if domain !== nothing
+        document["domain"] = Dict{String, Any}(
+            "level_density_model" => domain.level_density_model,
+            "ratio_averaging" => domain.ratio_averaging,
+            "charges_per_mass" => domain.charges_per_mass,
+            "charge_model" => domain.charge_model,
+            "mass_table" => domain.mass_table,
+            "package_version" => domain.package_version,
+            "excitation_weighted" => domain.excitation_weighted,
+        )
+    end
+    open(io -> TOML.print(io, document; sorted = true, by = _manifest_key_order), path, "w")
+    return path
 end
 
 """

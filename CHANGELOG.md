@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.3] - 2026-09-30
+
+- `ChargeResolved`, the exact inverse of a partition that gives every fragmentation its own
+  `a_L/a_H`: the relation is reduced over the charge distribution rather than through an
+  effective ratio. `ChargeResolved(mean_total_excitation(masses, domain, ⟨TKE⟩))` also weights
+  each fragmentation by its mean total excitation, which is the extraction's premise
+  `ν ∝ E*` carried to mass-resolved multiplicities. `heavy_excitation_fraction`,
+  `temperature_ratio` and `temperature_ratio_slope` take `(averaging, model, domain, A_H, ·)` for
+  every averaging. The effective ratios miss this inverse by up to 10⁻² in `R_T` at
+  `A_H ≈ 130`.
+- The temperature-ratio run record gains an optional `[domain]` table, `ManifestDomain`. It holds
+  the level density model, the ratio averaging and its excitation weighting, the charges per
+  mass, the charge model, the mass table and the package version.
+  `write_temperature_ratio_manifest` writes the record `read_temperature_ratio_manifest` reads.
+- `charge_model_label`, `level_density_label`, `ratio_averaging_label` and `ratio_averaging` give
+  the spellings for run records and configurations.
+- Wahl (1988), CF252S: `ΔZ(A_F/2) = 0`, point X of Fig. 2. The steep branch reaches `ΔZ_max`
+  only below `A_F/2`, and the model had carried `ΔZ ≈ 0.49` to symmetry, where a fragment is its
+  own complement. No tabulated `A'` falls on the point, so Tables I–IV reproduce as before.
+
 ## [0.1.2] - 2026-09-30
 
 - Every shipped test reference and fixture now rests on a public source.

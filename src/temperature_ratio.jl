@@ -35,8 +35,71 @@ strictly from one to zero as `R_T` grows, so every `r_ν ∈ (0, 1)` has one roo
 At the symmetric split, with a charge set invariant under `Z → Z₀ − Z`, the terms pair as `ρ` and
 `1/ρ` with equal weight, and `1/(1 + ρ) + 1/(1 + 1/ρ) = 1`. So `r_ν = 1/2` returns `R_T = 1`
 exactly.
+
+    ChargeResolved(excitation)
+
+The same relation with every fragmentation also weighted by its mean total excitation energy,
+`excitation[heavy] = ⟨TXE⟩(A_H, Z_H)` (see [`mean_total_excitation`](@ref)):
+
+```
+r_ν(A_H) = Σ_Z p(Z, A_H) ⟨TXE⟩_Z / (1 + ρ_Z R_T²)  /  Σ_Z p(Z, A_H) ⟨TXE⟩_Z.
+```
+
+This is the premise of the extraction, `ν_L/ν_H = E*_L/E*_H` (Tudora and Gogita, *Eur. Phys. J.
+A* **60**, 190 (2024), eq. (1), doi:10.1140/epja/s10050-024-01375-7), carried to mass-resolved
+multiplicities. Each is the yield-weighted mean over charge and TKE, so a fragmentation counts in
+proportion to the excitation it shares out. The Q-value and `a_L/a_H` both change across the
+charge window at the `Z = 50` shell. Dropping the weight therefore moves `R_T` by up to 10⁻² at
+`A_H ≈ 130`.
+
+The two fragmentations `Z` and `Z₀ − Z` at the symmetric split are the same pair, with the same
+excitation, so the identity there survives. A fragmentation absent from `excitation` is left out,
+and a non-positive `⟨TXE⟩` weighs nothing: that fragmentation has no excitation to share.
 """
-struct ChargeResolved <: RatioAveraging end
+struct ChargeResolved <: RatioAveraging
+    excitation::Union{Nothing, Dict{Nuclide, Float64}}
+end
+
+ChargeResolved() = ChargeResolved(nothing)
+
+"""
+    mean_total_excitation(masses, domain, mean_kinetic_energy) -> Dict{Nuclide,Float64}
+
+The mean total excitation energy of every fragmentation of `domain`, keyed by its heavy
+fragment, in MeV:
+
+```
+⟨TXE⟩(A_H, Z_H) = Q(A_H, Z_H) + E*_CN − ⟨TKE⟩(A_H),
+```
+
+with `Q` and the compound-nucleus excitation `E*_CN` from `masses`, and `mean_kinetic_energy`
+mapping a heavy mass number to its pre-neutron `⟨TKE⟩`. `⟨TXE⟩` is linear in `TKE`, so the mean
+alone carries the reduction over the kinetic-energy distribution. A heavy mass absent from
+`mean_kinetic_energy`, or a fragmentation whose Q-value `masses` cannot form, is absent from the
+result.
+"""
+function mean_total_excitation(
+    masses::MassExcessTable,
+    domain::FragmentationDomain,
+    mean_kinetic_energy::AbstractDict{<:Integer, <:Real},
+)
+    E_compound = compound_nucleus_excitation(masses, domain.system)
+    E_compound === nothing && throw(
+        ArgumentError(
+            "the compound-nucleus excitation of $(domain.system.compound) cannot be formed \
+             from the mass table",
+        ),
+    )
+    excitation = Dict{Nuclide, Float64}()
+    for entry in domain.entries
+        haskey(mean_kinetic_energy, entry.heavy.A) || continue
+        Q = q_value(masses, domain.system, entry.heavy)
+        Q === nothing && continue
+        excitation[entry.heavy] =
+            value(Q) + value(E_compound) - mean_kinetic_energy[entry.heavy.A]
+    end
+    return excitation
+end
 
 """
     RatioOfMeans()
@@ -190,18 +253,30 @@ uncertainty or a covariance of `r_ν` into `R_T`; `R_a` carries none of its own.
 """
 temperature_ratio_slope(R_T::Real, R_a::Real, r_ν::Real) = -1 / (2 * R_T * R_a * r_ν^2)
 
-# The per-charge ratios ρ = a_L/a_H at A_H and their normalised weights p(Z, A_H), over the
-# fragmentations whose two parameters exist; `nothing` where none does.
-function _charge_terms(model::LevelDensityModel, domain::FragmentationDomain, A_H::Integer)
+# The per-charge ratios ρ = a_L/a_H at A_H and their normalised weights, p(Z, A_H) or
+# p(Z, A_H)⟨TXE⟩, over the fragmentations whose parameters and excitation exist; `nothing`
+# where none does.
+function _charge_terms(
+    averaging::ChargeResolved,
+    model::LevelDensityModel,
+    domain::FragmentationDomain,
+    A_H::Integer,
+)
     ρ = Float64[]
     w = Float64[]
+    excitation = averaging.excitation
     for entry in domain.entries
         entry.heavy.A == A_H || continue
         a_H = level_density_parameter(model, entry.heavy)
         a_L = level_density_parameter(model, entry.light)
         (a_H === nothing || a_L === nothing) && continue
+        weight = entry.probability
+        if excitation !== nothing
+            haskey(excitation, entry.heavy) || continue
+            weight *= max(excitation[entry.heavy], 0.0)
+        end
         push!(ρ, a_L / a_H)
-        push!(w, entry.probability)
+        push!(w, weight)
     end
     total = sum(w; init = 0.0)
     total > 0 || return nothing
@@ -220,14 +295,14 @@ _resolved_fraction(ρ, w, R_T) = sum(w[i] / (1 + ρ[i] * R_T^2) for i in eachind
 fragmentation at `A_H` has both parameters.
 """
 function heavy_excitation_fraction(
-    ::ChargeResolved,
+    averaging::ChargeResolved,
     model::LevelDensityModel,
     domain::FragmentationDomain,
     A_H::Integer,
     R_T::Real,
 )
     R_T > 0 || throw(DomainError(R_T, "R_T must be positive, got $R_T"))
-    terms = _charge_terms(model, domain, A_H)
+    terms = _charge_terms(averaging, model, domain, A_H)
     terms === nothing && return nothing
     return _resolved_fraction(terms..., R_T)
 end
@@ -268,14 +343,14 @@ true
 ```
 """
 function temperature_ratio(
-    ::ChargeResolved,
+    averaging::ChargeResolved,
     model::LevelDensityModel,
     domain::FragmentationDomain,
     A_H::Integer,
     r_ν::Real,
 )
     0 < r_ν < 1 || throw(DomainError(r_ν, "r_ν must lie in (0, 1), got $r_ν"))
-    terms = _charge_terms(model, domain, A_H)
+    terms = _charge_terms(averaging, model, domain, A_H)
     terms === nothing && return nothing
     ρ, w = terms
     # The fraction lies between the single-charge relations at the extreme ratios, so their
@@ -323,14 +398,14 @@ end
 Returns `nothing` where no fragmentation at `A_H` has both parameters.
 """
 function temperature_ratio_slope(
-    ::ChargeResolved,
+    averaging::ChargeResolved,
     model::LevelDensityModel,
     domain::FragmentationDomain,
     A_H::Integer,
     R_T::Real,
 )
     R_T > 0 || throw(DomainError(R_T, "R_T must be positive, got $R_T"))
-    terms = _charge_terms(model, domain, A_H)
+    terms = _charge_terms(averaging, model, domain, A_H)
     terms === nothing && return nothing
     ρ, w = terms
     derivative = -sum(w[i] * 2 * ρ[i] * R_T / (1 + ρ[i] * R_T^2)^2 for i in eachindex(ρ))
@@ -348,3 +423,41 @@ function temperature_ratio_slope(
     R_a === nothing && return nothing
     return temperature_ratio_slope(R_T, R_a, heavy_excitation_fraction(R_T, R_a))
 end
+
+"""
+    RATIO_AVERAGINGS
+
+The spellings of the ratio averagings: `"charge_resolved"` for [`ChargeResolved`](@ref),
+`"ratio_of_means"` for [`RatioOfMeans`](@ref) and `"mean_of_ratios"` for
+[`MeanOfRatios`](@ref).
+"""
+const RATIO_AVERAGINGS = ("charge_resolved", "ratio_of_means", "mean_of_ratios")
+
+"""
+    ratio_averaging_label(averaging::RatioAveraging) -> String
+    ratio_averaging(label::AbstractString) -> RatioAveraging
+
+The spelling of a [`RatioAveraging`](@ref) in configurations and run records, one of
+[`RATIO_AVERAGINGS`](@ref), and its inverse. An unknown label is an `ArgumentError`.
+"""
+ratio_averaging_label(::ChargeResolved) = "charge_resolved"
+ratio_averaging_label(::RatioOfMeans) = "ratio_of_means"
+ratio_averaging_label(::MeanOfRatios) = "mean_of_ratios"
+
+@doc (@doc ratio_averaging_label)
+function ratio_averaging(label::AbstractString)
+    label == "charge_resolved" && return ChargeResolved()
+    label == "ratio_of_means" && return RatioOfMeans()
+    label == "mean_of_ratios" && return MeanOfRatios()
+    throw(ArgumentError("unknown ratio averaging $(repr(label)); one of \
+             $(join(map(repr, RATIO_AVERAGINGS), ", "))"))
+end
+
+"""
+    level_density_label(model::LevelDensityModel) -> String
+
+The spelling of a level density model in configurations and run records, one of
+[`LEVEL_DENSITY_MODELS`](@ref).
+"""
+level_density_label(::BackShiftedFermiGas) = "BSFG"
+level_density_label(::GilbertCameron) = "GC"

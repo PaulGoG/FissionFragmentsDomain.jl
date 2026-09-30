@@ -32,6 +32,8 @@ abstract type ZpModel <: ChargeModel end
 
 _heavy_mass(model::ZpModel, A′::Real) = 2 * A′ >= model.A_F ? A′ : model.A_F - A′
 
+charge_model_label(model::ZpModel) = sprint(show, model)
+
 """
     most_probable_charge(model::ZpModel, A′) -> Float64
 

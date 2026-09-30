@@ -127,6 +127,14 @@ function Base.show(io::IO, distribution::ChargeDistribution)
 end
 
 """
+    charge_model_label(model::ChargeModel) -> String
+
+A label for the charge model a domain was built on, for run records: the source a tabulated
+distribution was read from, or the model itself for a Zₚ model.
+"""
+charge_model_label(distribution::ChargeDistribution) = distribution.source
+
+"""
     charge_polarization(distribution, A) -> Float64
 
 Charge polarization `ΔZ` for heavy-fragment mass `A`, falling back to the mean value.

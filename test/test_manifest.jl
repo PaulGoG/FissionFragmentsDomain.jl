@@ -224,3 +224,138 @@ end
         ) == 1.4
     end
 end
+
+@testset "the domain record round-trips" begin
+    mktempdir() do directory
+        system = neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth")
+        masses = mass_table()
+        model = BackShiftedFermiGas(masses)
+        charge = charge_model(masses, system)
+        domain = fragmentation_domain(system, charge, 118:160)
+        record = ManifestDomain(model, ChargeResolved(), domain, charge, masses)
+        @test record.level_density_model == "BSFG"
+        @test record.ratio_averaging == "charge_resolved"
+        @test record.charges_per_mass == 5
+        @test record.mass_table == basename(String(AME2020_MASS_EXCESS_FILE))
+        @test occursin("Wahl1988", record.charge_model)
+
+        base = read_temperature_ratio_manifest(_manifest(directory))
+        manifest = TemperatureRatioManifest(
+            base.system,
+            base.ordinate,
+            base.abscissa,
+            base.columns,
+            base.curves,
+            base.source,
+            record,
+        )
+        path = write_temperature_ratio_manifest(
+            joinpath(directory, "manifest_written.toml"),
+            manifest,
+        )
+        back = read_temperature_ratio_manifest(path)
+        for field in fieldnames(ManifestSystem)
+            @test getfield(back.system, field) == getfield(base.system, field)
+        end
+        @test back.ordinate == base.ordinate
+        @test back.abscissa == base.abscissa
+        @test back.columns == base.columns
+        @test [curve.label for curve in back.curves] == [curve.label for curve in base.curves]
+        @test [curve.kind for curve in back.curves] == [curve.kind for curve in base.curves]
+        @test [curve.temperature_ratio_file for curve in back.curves] == [curve.temperature_ratio_file for curve in base.curves]
+        @test [curve.multiplicity_ratio_pivots_file for curve in back.curves] == [curve.multiplicity_ratio_pivots_file for curve in base.curves]
+        @test back.domain == record
+
+        # A run record is never overwritten.
+        @test_throws ArgumentError write_temperature_ratio_manifest(path, manifest)
+
+        for averaging in (ChargeResolved(), RatioOfMeans(), MeanOfRatios())
+            @test ratio_averaging(ratio_averaging_label(averaging)) isa typeof(averaging)
+        end
+        @test_throws ArgumentError ratio_averaging("median")
+    end
+end
+
+@testset "a domain record this package cannot honour is refused" begin
+    mktempdir() do directory
+        block = "[domain]\nlevel_density_model = \"BSFG\"\nratio_averaging = \"charge_resolved\"\ncharges_per_mass = 5\ncharge_model = \"Wahl1988(U235T, Z_F = 92, A_F = 236)\"\nmass_table = \"mass_excess_ame2020.dat\"\npackage_version = \"0.1.3\"\n\n[run]"
+        altered(from, to) = "[run]" => replace(block, from => to)
+
+        @test read_temperature_ratio_manifest(_manifest(directory, "[run]" => block)).domain isa
+              ManifestDomain
+        @test read_temperature_ratio_manifest(_manifest(directory)).domain === nothing
+
+        @test _manifest_rejects(
+            directory,
+            "ratio_averaging",
+            altered(
+                "ratio_averaging = \"charge_resolved\"",
+                "ratio_averaging = \"median\"",
+            ),
+        )
+        @test _manifest_rejects(
+            directory,
+            "level_density_model",
+            altered("level_density_model = \"BSFG\"", "level_density_model = \"Fermi\""),
+        )
+        @test _manifest_rejects(
+            directory,
+            "charges_per_mass",
+            altered("charges_per_mass = 5", "charges_per_mass = 4"),
+        )
+        @test _manifest_rejects(
+            directory,
+            "charges_per_mass",
+            altered("charges_per_mass = 5", "charges_per_mass = \"5\""),
+        )
+        @test _manifest_rejects(
+            directory,
+            "mass_table",
+            altered("mass_table = \"mass_excess_ame2020.dat\"\n", ""),
+        )
+    end
+end
+
+@testset "the excitation weighting is recorded" begin
+    masses = mass_table()
+    system = neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth")
+    model = BackShiftedFermiGas(masses)
+    charge = charge_model(masses, system)
+    domain = fragmentation_domain(system, charge, 118:160)
+    plain = ManifestDomain(model, ChargeResolved(), domain, charge, masses)
+    @test !plain.excitation_weighted
+    excitation = mean_total_excitation(masses, domain, Dict(A => 170.0 for A in 118:160))
+    weighted = ManifestDomain(model, ChargeResolved(excitation), domain, charge, masses)
+    @test weighted.excitation_weighted
+    @test weighted != plain
+    @test_throws ArgumentError ManifestDomain(
+        "BSFG",
+        "ratio_of_means",
+        5,
+        "x",
+        "y",
+        "0.1.3",
+        true,
+    )
+
+    mktempdir() do directory
+        base = read_temperature_ratio_manifest(_manifest(directory))
+        manifest = TemperatureRatioManifest(
+            base.system,
+            base.ordinate,
+            base.abscissa,
+            base.columns,
+            base.curves,
+            base.source,
+            weighted,
+        )
+        path =
+            write_temperature_ratio_manifest(joinpath(directory, "weighted.toml"), manifest)
+        @test read_temperature_ratio_manifest(path).domain == weighted
+        # The record reads in the order a person reads it.
+        tables = filter(line -> startswith(line, "["), readlines(path))
+        @test first(tables) == "[system]"
+        @test findfirst(==("[domain]"), tables) <
+              findfirst(==("[[segmented_curve]]"), tables)
+    end
+end

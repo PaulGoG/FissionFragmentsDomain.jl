@@ -79,8 +79,9 @@ system = spontaneous_fission(Nuclide(98, 252))
 masses = read_mass_excess_table(AME2020_MASS_EXCESS_FILE)
 charge = charge_model(masses, system)                           # Wahl (1988), CF252S
 domain = fragmentation_domain(system, charge, 126:174)
-R_a = level_density_ratio(RatioOfMeans(), BackShiftedFermiGas(masses), domain)
-heavy_excitation_fraction(1.2, R_a[140])                        # E*_H/TXE at A_H = 140
+model = BackShiftedFermiGas(masses)
+heavy_excitation_fraction(ChargeResolved(), model, domain, 140, 1.2)   # E*_H/TXE at A_H = 140
+temperature_ratio(ChargeResolved(), model, domain, 140, 0.45)          # R_T from r_ν
 ```
 
 ## Status
@@ -91,7 +92,7 @@ heavy_excitation_fraction(1.2, R_a[140])                        # E*_H/TXE at A_
 | Charge distribution | evaluated tables; Wahl (1988) for its four reactions, reproducing its Tables I–IV row by row; Wahl (2002) systematics, low-energy branch; conventional means |
 | Fragmentation domain | complete; optional zero polarization at the symmetric split |
 | Level density | back-shifted Fermi gas (von Egidy–Bucurescu), Gilbert–Cameron with its deformed branch |
-| Temperature ratio | forward and inverse relation, `R_a` in either averaging order |
+| Temperature ratio | forward and inverse relation, charge-resolved (optionally excitation-weighted) or through an effective `R_a` in either averaging order; run record with its domain, read and written |
 | Yields | joint `Y(A, TKE)`, factorized reconstruction, `Y(A)` |
 | Run records | reader; the writer follows with the rebuilt producer |
 
@@ -125,7 +126,7 @@ FissionFragmentsDomain.jl/
 │   ├── yields.jl             Y(A,TKE), factorized yield, Y(A)
 │   ├── averaging.jl          yield-weighted contractions
 │   ├── curves.jl             curves of A_H
-│   └── manifest.jl           temperature-ratio run record
+│   └── manifest.jl           temperature-ratio run record, read and written
 ├── test/
 │   ├── runtests.jl, physics.jl, activate.jl, Project.toml
 │   ├── test_*.jl

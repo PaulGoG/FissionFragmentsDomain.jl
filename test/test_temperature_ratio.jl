@@ -135,3 +135,32 @@ end
     @test_throws DomainError heavy_excitation_fraction(resolved, model, domain, 140, 0.0)
     @test_throws ArgumentError level_density_ratio(resolved, model, domain)
 end
+
+@testset "charge-resolved inversion weighted by the total excitation" begin
+    masses = mass_table()
+    model = BackShiftedFermiGas(masses)
+    domain = fragmentation_domain(CF252, cf252_charge_distribution(), CF252_HEAVY_MASSES)
+    # A representative ⟨TKE⟩(A_H): only its level against the Q-values enters the weights.
+    tke = Dict(A_H => 185.0 for A_H in CF252_HEAVY_MASSES)
+    excitation = mean_total_excitation(masses, domain, tke)
+    entry = first(filter(e -> e.heavy.A == 140, domain.entries))
+    @test excitation[entry.heavy] ≈ value(q_value(masses, CF252, entry.heavy)) - 185.0 rtol =
+        RTOL
+    weighted = ChargeResolved(excitation)
+
+    for A_H in CF252_HEAVY_MASSES, R_T in (0.8, 1.45)
+        r_ν = heavy_excitation_fraction(weighted, model, domain, A_H, R_T)
+        @test temperature_ratio(weighted, model, domain, A_H, r_ν) ≈ R_T rtol = 1e-13
+    end
+    # The pair Z, Z₀ − Z at the symmetric split is one fragmentation with one excitation.
+    @test temperature_ratio(weighted, model, domain, 126, 0.5) ≈ 1 atol = 4 * eps()
+
+    # Omitting the weight is not negligible at the doubly magic heavy fragment.
+    r_ν = heavy_excitation_fraction(weighted, model, domain, 130, 1.45)
+    @test abs(temperature_ratio(ChargeResolved(), model, domain, 130, r_ν) - 1.45) > 1e-3
+
+    # A mass the kinetic-energy map does not cover has no weighted relation.
+    partial = ChargeResolved(mean_total_excitation(masses, domain, Dict(140 => 185.0)))
+    @test temperature_ratio(partial, model, domain, 141, 0.4) === nothing
+    @test temperature_ratio(partial, model, domain, 140, 0.4) isa Float64
+end
