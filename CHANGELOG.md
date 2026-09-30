@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.0] - 2026-09-30
 
 First version: the fragmentation domain of `DeterministicSequentialEmission.jl`, extracted so that
 the temperature-ratio extraction and the emission model share it.

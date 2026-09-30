@@ -1,5 +1,11 @@
 # FissionFragmentsDomain.jl
 
+[![CI](https://github.com/PaulGoG/FissionFragmentsDomain.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/PaulGoG/FissionFragmentsDomain.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Documentation (stable)](https://img.shields.io/badge/docs-stable-blue.svg)](https://PaulGoG.github.io/FissionFragmentsDomain.jl/stable/)
+[![Documentation (dev)](https://img.shields.io/badge/docs-dev-blue.svg)](https://PaulGoG.github.io/FissionFragmentsDomain.jl/dev/)
+[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ```
 FissionFragmentsDomain.jl/
 ├── src/            the library: systems, masses, charge, domain, level density, energetics,
@@ -94,7 +100,7 @@ heavy_excitation_fraction(1.2, R_a[140])                        # E*_H/TXE at A_
 
 ```
 FissionFragmentsDomain.jl/
-├── .github/dormant/          CI and Dependabot, dormant until public release
+├── .github/                 CI workflow and Dependabot configuration
 ├── data/
 │   ├── README.md             reader formats, provenance, lineage of the charge tables
 │   └── reference/mass_excess_ame2020.dat
