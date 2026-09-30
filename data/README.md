@@ -137,12 +137,14 @@ pp. 1453–1455, doi:10.1139/p65-139. It holds the shell corrections `S(N)` for 
 `Z = 98`, and those cells read `NaN`. The pairing energies `P(Z)`, `P(N)` of the same table are
 not used by the level density parameter and are not shipped.
 
-The corrections are the residuals of the semi-empirical mass formula of Cameron and Elkin (1965),
-split into a function of `Z` and a function of `N`. The paper states them good to about 200 keV
+The corrections are the residuals of the exponential semi-empirical mass formula of A. G. W.
+Cameron and R. M. Elkin, *Can. J. Phys.* **43**, 1288 (1965), doi:10.1139/p65-123, split into a
+function of `Z` and a function of `N`. The paper states them good to about 200 keV
 (p. 1455).
 
 The table was transcribed three times independently from page images of the printed article,
 reading row by row, column by column, and even rows before odd ones. The three agree in every
-cell. Checks: `Σ S(N) = 1496.25 MeV` over 140 values, `Σ S(Z) = −1018.24 MeV` over 88 values, and
+cell. They also agree in all 228 values with an independent electronic copy, the tables of
+Geant4's `G4CameronGilbertShellCorrections.cc` (github.com/Geant4/geant4, commit `f3d5293d38`). Checks: `Σ S(N) = 1496.25 MeV` over 140 values, `Σ S(Z) = −1018.24 MeV` over 88 values, and
 the closed shells `Z = 28, 50, 82` and `N = 28, 50, 82, 126` are local minima. A copy that pads
 `S(Z)` past `Z = 98` with `0.00` reads to the same table.

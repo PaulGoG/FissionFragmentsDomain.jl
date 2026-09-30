@@ -188,7 +188,8 @@ const AME2020_MASS_EXCESS_FILE =
 The shipped shell corrections of Gilbert and Cameron, Table III of *Can. J. Phys.* **43**, 1446
 (1965), pp. 1453–1455, doi:10.1139/p65-139: `S(N)` for `N = 11–150` and `S(Z)` for
 `Z = 11–98`, in MeV, as printed. Rows past `Z = 98`, where the paper tabulates no `S(Z)`, carry
-`NaN` in that column. The transcription and its checks are in `data/README.md`. The path survives
+`NaN` in that column. The transcription and its checks, among them agreement with Geant4's
+electronic copy in all 228 values, are in `data/README.md`. The path survives
 relocation of the package, like [`AME2020_MASS_EXCESS_FILE`](@ref).
 
 # Examples
