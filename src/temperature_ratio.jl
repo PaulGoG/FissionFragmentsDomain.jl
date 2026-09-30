@@ -1,13 +1,42 @@
 """
     RatioAveraging
 
-The order in which the level density parameter ratio of complementary fragments is reduced over
-the isobaric charge distribution at fixed `A_H`: [`RatioOfMeans`](@ref), `⟨a_L⟩/⟨a_H⟩`, or
-[`MeanOfRatios`](@ref), `⟨a_L/a_H⟩`. The two differ by Jensen's inequality and coincide only for
-a degenerate charge distribution. An extraction of `R_T(A_H)` and the partition that applies it
-must use the same order, or the round trip `ν(A) → R_T → ν(A)` does not close.
+How the level density parameter ratio of complementary fragments enters the relation between
+`R_T` and `E*_H/TXE` over the isobaric charge distribution at fixed `A_H`:
+
+- [`ChargeResolved`](@ref): no effective ratio; the relation is written for every fragmentation
+  and reduced over charge afterwards;
+- [`RatioOfMeans`](@ref): `⟨a_L⟩/⟨a_H⟩`;
+- [`MeanOfRatios`](@ref): `⟨a_L/a_H⟩`.
+
+The last two are effective ratios. They differ from each other, and from the charge-resolved
+relation, at second order in the spread of `a_L/a_H` over the charge window, and all three
+coincide for a single charge. A prompt emission code that partitions each fragment pair with its
+own parameters inverts exactly under `ChargeResolved` alone. Under either effective ratio the round
+trip `r_ν → R_T → r_ν` misses by up to about 10⁻² in `R_T`, at the doubly magic heavy fragment.
 """
 abstract type RatioAveraging end
+
+"""
+    ChargeResolved()
+
+The relation `E*_H/TXE = 1/(1 + ρ_Z R_T²)`, with `ρ_Z = a_L/a_H` of the fragmentation
+`(A_H, Z_H)`, written for every fragmentation and reduced over the charge distribution afterwards:
+
+```
+r_ν(A_H) = Σ_Z p(Z, A_H) / (1 + ρ_Z R_T²)  /  Σ_Z p(Z, A_H).
+```
+
+This is how the Point-by-Point and sequential emission treatments apply a temperature ratio: to
+each fragment pair with its own level density parameters (A. Tudora, *Eur. Phys. J. A*
+**58**, 126 (2022), eq. (5), doi:10.1140/epja/s10050-022-00766-y). The right-hand side falls
+strictly from one to zero as `R_T` grows, so every `r_ν ∈ (0, 1)` has one root.
+
+At the symmetric split, with a charge set invariant under `Z → Z₀ − Z`, the terms pair as `ρ` and
+`1/ρ` with equal weight, and `1/(1 + ρ) + 1/(1 + 1/ρ) = 1`. So `r_ν = 1/2` returns `R_T = 1`
+exactly.
+"""
+struct ChargeResolved <: RatioAveraging end
 
 """
     RatioOfMeans()
@@ -40,6 +69,15 @@ At `A_H = A₀/2` the heavy entries run over the retained window; when it is its
 `Z → Z₀ − Z` (see [`symmetric_charge_set_is_invariant`](@ref)) every split enters in both
 labellings with equal weight.
 """
+function level_density_ratio(::ChargeResolved, ::LevelDensityModel, ::FragmentationDomain)
+    throw(
+        ArgumentError(
+            "ChargeResolved forms no effective level density ratio; take the relation over the \
+             charge distribution with heavy_excitation_fraction or temperature_ratio at A_H",
+        ),
+    )
+end
+
 function level_density_ratio(
     averaging::RatioAveraging,
     model::LevelDensityModel,
@@ -151,3 +189,162 @@ end
 uncertainty or a covariance of `r_ν` into `R_T`; `R_a` carries none of its own.
 """
 temperature_ratio_slope(R_T::Real, R_a::Real, r_ν::Real) = -1 / (2 * R_T * R_a * r_ν^2)
+
+# The per-charge ratios ρ = a_L/a_H at A_H and their normalised weights p(Z, A_H), over the
+# fragmentations whose two parameters exist; `nothing` where none does.
+function _charge_terms(model::LevelDensityModel, domain::FragmentationDomain, A_H::Integer)
+    ρ = Float64[]
+    w = Float64[]
+    for entry in domain.entries
+        entry.heavy.A == A_H || continue
+        a_H = level_density_parameter(model, entry.heavy)
+        a_L = level_density_parameter(model, entry.light)
+        (a_H === nothing || a_L === nothing) && continue
+        push!(ρ, a_L / a_H)
+        push!(w, entry.probability)
+    end
+    total = sum(w; init = 0.0)
+    total > 0 || return nothing
+    return ρ, w ./ total
+end
+
+_resolved_fraction(ρ, w, R_T) = sum(w[i] / (1 + ρ[i] * R_T^2) for i in eachindex(ρ))
+
+"""
+    heavy_excitation_fraction(averaging, model, domain, A_H, R_T) -> Union{Float64,Nothing}
+
+`E*_H/TXE` at the heavy mass `A_H` of `domain`, reduced over its charge distribution as
+`averaging` prescribes: the charge-weighted mean of the per-fragmentation relation for
+[`ChargeResolved`](@ref), the relation at the effective ratio for [`RatioOfMeans`](@ref) and
+[`MeanOfRatios`](@ref). Level density parameters come from `model`. Returns `nothing` where no
+fragmentation at `A_H` has both parameters.
+"""
+function heavy_excitation_fraction(
+    ::ChargeResolved,
+    model::LevelDensityModel,
+    domain::FragmentationDomain,
+    A_H::Integer,
+    R_T::Real,
+)
+    R_T > 0 || throw(DomainError(R_T, "R_T must be positive, got $R_T"))
+    terms = _charge_terms(model, domain, A_H)
+    terms === nothing && return nothing
+    return _resolved_fraction(terms..., R_T)
+end
+
+function heavy_excitation_fraction(
+    averaging::RatioAveraging,
+    model::LevelDensityModel,
+    domain::FragmentationDomain,
+    A_H::Integer,
+    R_T::Real,
+)
+    R_a = _charge_averaged_ratio(averaging, model, domain, A_H)
+    R_a === nothing && return nothing
+    return heavy_excitation_fraction(R_T, R_a)
+end
+
+"""
+    temperature_ratio(averaging, model, domain, A_H, r_ν) -> Union{Float64,Nothing}
+
+The temperature ratio at the heavy mass `A_H` that reproduces the multiplicity ratio `r_ν`, the
+inverse of [`heavy_excitation_fraction`](@ref) with the same arguments. For
+[`ChargeResolved`](@ref) the root is taken by bisection. It is bracketed by the closed-form roots
+at the largest and the smallest `a_L/a_H` of the charge window, and resolved to rounding. For an
+effective ratio it is the closed form. Returns `nothing` where no fragmentation at `A_H` has both
+parameters.
+
+# Examples
+
+```jldoctest
+julia> table = read_mass_excess_table(String(AME2020_MASS_EXCESS_FILE));
+
+julia> system = spontaneous_fission(Nuclide(98, 252));
+
+julia> domain = fragmentation_domain(system, WAHL_1988[(98, 252)], 126:174);
+
+julia> temperature_ratio(ChargeResolved(), BackShiftedFermiGas(table), domain, 126, 0.5) ≈ 1
+true
+```
+"""
+function temperature_ratio(
+    ::ChargeResolved,
+    model::LevelDensityModel,
+    domain::FragmentationDomain,
+    A_H::Integer,
+    r_ν::Real,
+)
+    0 < r_ν < 1 || throw(DomainError(r_ν, "r_ν must lie in (0, 1), got $r_ν"))
+    terms = _charge_terms(model, domain, A_H)
+    terms === nothing && return nothing
+    ρ, w = terms
+    # The fraction lies between the single-charge relations at the extreme ratios, so their
+    # closed-form roots bracket the root.
+    lower = temperature_ratio(r_ν, maximum(ρ))
+    upper = temperature_ratio(r_ν, minimum(ρ))
+    lower == upper && return lower
+    for _ in 1:200
+        middle = (lower + upper) / 2
+        (middle == lower || middle == upper) && break
+        if _resolved_fraction(ρ, w, middle) > r_ν
+            lower = middle
+        else
+            upper = middle
+        end
+    end
+    # Of the two adjacent floating-point bounds, the one closer to the target.
+    return abs(_resolved_fraction(ρ, w, lower) - r_ν) <=
+           abs(_resolved_fraction(ρ, w, upper) - r_ν) ? lower : upper
+end
+
+function temperature_ratio(
+    averaging::RatioAveraging,
+    model::LevelDensityModel,
+    domain::FragmentationDomain,
+    A_H::Integer,
+    r_ν::Real,
+)
+    R_a = _charge_averaged_ratio(averaging, model, domain, A_H)
+    R_a === nothing && return nothing
+    return temperature_ratio(r_ν, R_a)
+end
+
+"""
+    temperature_ratio_slope(averaging, model, domain, A_H, R_T) -> Union{Float64,Nothing}
+
+`∂R_T/∂r_ν` at the heavy mass `A_H` and temperature ratio `R_T`: the factor by which
+[`temperature_ratio`](@ref) with the same arguments carries an uncertainty or a covariance of
+`r_ν` into `R_T`. For [`ChargeResolved`](@ref) it is the reciprocal of
+
+```
+∂r_ν/∂R_T = −Σ_Z p(Z, A_H) 2 ρ_Z R_T / (1 + ρ_Z R_T²)²  /  Σ_Z p(Z, A_H).
+```
+
+Returns `nothing` where no fragmentation at `A_H` has both parameters.
+"""
+function temperature_ratio_slope(
+    ::ChargeResolved,
+    model::LevelDensityModel,
+    domain::FragmentationDomain,
+    A_H::Integer,
+    R_T::Real,
+)
+    R_T > 0 || throw(DomainError(R_T, "R_T must be positive, got $R_T"))
+    terms = _charge_terms(model, domain, A_H)
+    terms === nothing && return nothing
+    ρ, w = terms
+    derivative = -sum(w[i] * 2 * ρ[i] * R_T / (1 + ρ[i] * R_T^2)^2 for i in eachindex(ρ))
+    return 1 / derivative
+end
+
+function temperature_ratio_slope(
+    averaging::RatioAveraging,
+    model::LevelDensityModel,
+    domain::FragmentationDomain,
+    A_H::Integer,
+    R_T::Real,
+)
+    R_a = _charge_averaged_ratio(averaging, model, domain, A_H)
+    R_a === nothing && return nothing
+    return temperature_ratio_slope(R_T, R_a, heavy_excitation_fraction(R_T, R_a))
+end

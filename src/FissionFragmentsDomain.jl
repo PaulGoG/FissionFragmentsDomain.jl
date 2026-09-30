@@ -111,6 +111,7 @@ export LevelDensityModel,
     shell_correction,
     liquid_drop_energy
 export RatioAveraging,
+    ChargeResolved,
     RatioOfMeans,
     MeanOfRatios,
     level_density_ratio,

@@ -97,13 +97,25 @@ end
     end
 
     # ΔZ falls to zero at symmetry where the steep branch reaches ΔZ_max above A_F/2. For CF252S
-    # it does not, and the model keeps the steep branch down to A_F/2, as Table IV does.
+    # it does not: the steep branch runs down to A_F/2, as Table IV does, and the zero of point X
+    # holds at A_F/2 alone.
     U235T = wahl_1988_model("U235T")
     @test charge_polarization(U235T, 118) ≈ 0.0 atol = 1e-12
     @test U235T.A_m > 118
     CF252S = wahl_1988_model("CF252S")
     @test CF252S.A_m < 126
-    @test 0.4 < charge_polarization(CF252S, 126) < 0.5
+    @test charge_polarization(CF252S, 126) == 0.0
+    @test 0.4 < charge_polarization(CF252S, 126.25) < 0.5
+    @test charge_dispersion(CF252S, 126) == CF252S.σZ50
+
+    # A fragment of mass A₀/2 is its own complement, so its charge distribution is symmetric
+    # about Z₀/2 for every reaction of the evaluation.
+    for label in ("U235T", "U233T", "PU239T", "CF252S")
+        model = wahl_1988_model(label)
+        A = model.A_F ÷ 2
+        yields = Dict(zip(fragment_charge_yields(model, A)...))
+        @test all(y ≈ get(yields, model.Z_F - Z, 0.0) for (Z, y) in yields)
+    end
 
     # Complementarity, eq. (7d): the light side mirrors the heavy about Z_F/2.
     for A′ in (95.3, 104.0, 110.6)

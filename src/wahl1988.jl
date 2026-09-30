@@ -8,9 +8,11 @@ reaction by least squares (Table A). The functions of `A'`:
 - `ΔZ(A'_H)` is the straight line `ΔZ(140) + ∂ΔZ/∂A' (A'_H − 140)` down to the junction `A'_J`.
   Below it a steep branch rises across the `Zₚ = 50` line, and below `A'_m`, where it reaches
   `ΔZ_max`, a straight line falls to zero at `A_F/2` (Fig. 2). For CF252S the steep branch
-  reaches `ΔZ_max` only below `A_F/2`, so it runs down to symmetry and `ΔZ(A_F/2) ≈ 0.49`; the
-  heavy and the light product of mass `A_F/2` then centre on different charges, as Table IV has
-  them. The steep branch passes through
+  reaches `ΔZ_max` only below `A_F/2`, so it runs down to symmetry: Table IV has
+  `ΔZ = 0.435` at `A' = 126.27` and, on the light side, `−0.416` at `125.63`. The zero of
+  Fig. 2, point X, then holds at `A' = A_F/2` alone. It is the value exchange symmetry demands of
+  a fragment of mass `A_F/2`, whose complement is the same mass, and no tabulated `A'` falls on
+  it. The steep branch passes through
   the point where the `Zₚ = 50` line meets `ΔZ = 0`, `A'_{50} = 50 A_F/Z_F`. It also passes
   through the point `ΔA'_Z` above `A'_P` at the height of `P`, where `P` is the intersection of the
   `Zₚ = 50` line with the extrapolated peak line; that point is the junction.
@@ -97,7 +99,11 @@ struct Wahl1988 <: ZpModel
 end
 
 function _heavy_parameters(model::Wahl1988, A′::Real)
-    ΔZ = if A′ >= model.A_J
+    # Point X of Fig. 2: ΔZ = 0 at A_F/2. Where A'_m lies below A_F/2 (CF252S) the ramp has no
+    # extent and the point stands alone; no tabulated A' falls on it.
+    ΔZ = if A′ <= model.A_F / 2
+        0.0
+    elseif A′ >= model.A_J
         model.ΔZ140 + model.ΔZSL * (A′ - 140)
     elseif A′ >= model.A_m
         model.steep * (A′ - model.A_50)
