@@ -214,6 +214,14 @@ either a measured [`KineticEnergyDispersion`](@ref) or a single width in MeV.
 A mass without a tabulated `⟨TKE⟩` is dropped rather than extrapolated. A complementary mass,
 `compound_mass − A`, not tabulated itself inherits the mean of its partner, since `TKE` is a
 property of the split.
+
+With `symmetrize = true` the exact pre-neutron identities `Y(A) = Y(A₀ − A)`,
+`⟨TKE⟩(A) = ⟨TKE⟩(A₀ − A)` and `σ_TKE(A) = σ_TKE(A₀ − A)` are imposed: the two fragments of a
+split are counted in one event, so their masses have one yield and one kinetic energy.
+- Where both complements are tabulated, each takes their mean. Measured values that differ, such
+  as a backing loss on one side of a double-energy measurement, then enter once and alike.
+- Where only one is tabulated, it serves the other as before.
+Pre-neutron data should be symmetrized. The default, `false`, keeps the tables as measured.
 The result is renormalized to `total`. Columns are taken by position in both files, not by
 header text: mass and yield in the first, mass and mean kinetic energy in the second.
 """
@@ -224,6 +232,7 @@ function factorized_yield(
     compound_mass::Integer;
     dispersion::Union{Real, KineticEnergyDispersion} = DEFAULT_KINETIC_ENERGY_DISPERSION,
     total::Real = DEFAULT_YIELD_TOTAL,
+    symmetrize::Bool = false,
 )
     widths =
         dispersion isa KineticEnergyDispersion ? dispersion :
@@ -241,26 +250,41 @@ function factorized_yield(
 
     # TKE belongs to the split, so a mean tabulated against the heavy mass serves the light
     # partner too.
-    mean_by_mass = Dict{Int, Float64}()
+    measured_mean = Dict{Int, Float64}()
     for row in eachindex(energy_masses)
         isfinite(means[row]) && means[row] > 0 || continue
-        mean_by_mass[energy_masses[row]] = means[row]
-        complement = Int(compound_mass) - energy_masses[row]
-        haskey(mean_by_mass, complement) || (mean_by_mass[complement] = means[row])
+        measured_mean[energy_masses[row]] = means[row]
+    end
+    symmetrize && (measured_mean = _complement_averaged(measured_mean, compound_mass))
+    mean_by_mass = copy(measured_mean)
+    for (A, mean) in measured_mean
+        complement = Int(compound_mass) - A
+        haskey(mean_by_mass, complement) || (mean_by_mass[complement] = mean)
     end
     isempty(mean_by_mass) &&
         throw(ArgumentError("$(energy_table.path) holds no positive mean kinetic energies"))
 
+    measured_yield = Dict{Int, Float64}()
+    for row in eachindex(masses)
+        isfinite(yields[row]) &&
+            yields[row] > 0 &&
+            (measured_yield[masses[row]] = yields[row])
+    end
+    symmetrize && (measured_yield = _complement_averaged(measured_yield, compound_mass))
+    width_by_mass =
+        symmetrize ? _complement_averaged(widths.σ_TKE, compound_mass) : widths.σ_TKE
+
     values = Dict{Tuple{Int, Float64}, Float64}()
     kept = Int[]
     running = 0.0
-    for row in eachindex(masses)
-        A = masses[row]
-        Y = yields[row]
-        isfinite(Y) && Y > 0 || continue
+    for A in sort(collect(keys(measured_yield)))
+        Y = measured_yield[A]
         mean = get(mean_by_mass, A, nothing)
         mean === nothing && continue
-        σ_TKE = kinetic_energy_dispersion(widths, A)
+        σ_TKE =
+            symmetrize ? get(width_by_mass, A) do
+                get(width_by_mass, Int(compound_mass) - A, widths.default)
+            end : kinetic_energy_dispersion(widths, A)
         shape = [exp(-(TKE - mean)^2 / (2 * σ_TKE^2)) for TKE in grid]
         norm = sum(shape)
         norm > 0 || continue
@@ -287,6 +311,36 @@ function factorized_yield(
         grid,
         string(basename(mass_yield_path), " × ", basename(kinetic_energy_path)),
     )
+end
+
+# The mean of the values at A and at its complement where both are tabulated; a value whose
+# complement is absent is kept as it is.
+function _complement_averaged(values::AbstractDict{Int, Float64}, compound_mass::Integer)
+    averaged = Dict{Int, Float64}()
+    for (A, value) in values
+        partner = get(values, Int(compound_mass) - A, nothing)
+        averaged[A] = partner === nothing ? value : (value + partner) / 2
+    end
+    return averaged
+end
+
+"""
+    symmetrized_yield(yield, compound_mass) -> MassEnergyYield
+
+`yield` with the exact pre-neutron identity `Y(A, TKE) = Y(A₀ − A, TKE)` imposed, `A₀` being
+`compound_mass`. The two fragments of a split share one event, and so one yield at each total
+kinetic energy.
+- Where both cells `(A, TKE)` and `(A₀ − A, TKE)` are measured, each takes their mean.
+- A cell whose complement is not measured is kept as it is.
+The normalization is unchanged: the mean of two cells preserves their sum.
+"""
+function symmetrized_yield(yield::MassEnergyYield, compound_mass::Integer)
+    values = Dict{Tuple{Int, Float64}, Float64}()
+    for ((A, TKE), Y) in yield.values
+        partner = get(yield.values, (Int(compound_mass) - A, TKE), nothing)
+        values[(A, TKE)] = partner === nothing ? Y : (Y + partner) / 2
+    end
+    return MassEnergyYield(values, yield.masses, yield.energies, yield.source)
 end
 
 """

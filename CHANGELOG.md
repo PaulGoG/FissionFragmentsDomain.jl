@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.8] - 2026-09-30
+
+- `factorized_yield(...; symmetrize = true)` imposes the exact pre-neutron identities:
+  `Y(A) = Y(A₀ − A)`, `⟨TKE⟩(A) = ⟨TKE⟩(A₀ − A)` and `σ_TKE(A) = σ_TKE(A₀ − A)`. Where both
+  complements are measured, each takes their mean; where one is, it serves both.
+  `symmetrized_yield` does the same for a joint `Y(A, TKE)`. The default keeps the tables as
+  measured.
+- `factorized_yield` reads each mass once and sums in mass order. Unsymmetrized results agree with
+  0.1.7 to rounding.
+
 ## [0.1.7] - 2026-09-30
 
 - `read_segmented_curve`'s docstring gave `mean_of_ratios` as the averaging a per-charge partition

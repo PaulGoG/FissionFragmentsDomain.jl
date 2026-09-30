@@ -142,6 +142,72 @@ end
     end
 end
 
+@testset "the pre-neutron identities imposed on the marginals" begin
+    mktempdir() do directory
+        # Both branches measured, and measured unequally, as a backing loss on one side of a
+        # double-energy measurement leaves them; 236 − 140 = 96.
+        write(joinpath(directory, "Y.dat"), "A Y\n96 5.0\n140 7.0\n150 2.0\n")
+        write(joinpath(directory, "TKE.dat"), "A TKE\n96 168.0\n140 172.0\n150 160.0\n")
+        write(joinpath(directory, "sigma.dat"), "A sigma_TKE\n96 8.0\n140 10.0\n")
+        grid = 130.0:1.0:210.0
+        build(symmetrize) = factorized_yield(
+            joinpath(directory, "Y.dat"),
+            joinpath(directory, "TKE.dat"),
+            grid,
+            236;
+            dispersion = read_kinetic_energy_dispersion(
+                joinpath(directory, "sigma.dat");
+                default = 12.0,
+            ),
+            total = 14.0,
+            symmetrize = symmetrize,
+        )
+        row(y, A) = [y.values[(A, T)] for T in grid]
+        centroid(y, A) = sum(T * y.values[(A, T)] for T in grid) / sum(row(y, A))
+        spread(y, A) = sqrt(
+            sum((T - centroid(y, A))^2 * y.values[(A, T)] for T in grid) / sum(row(y, A)),
+        )
+
+        measured = build(false)
+        symmetric = build(true)
+
+        # As measured, the two complements keep their own yield, mean and width.
+        @test sum(row(measured, 96)) ≈ 5.0 rtol = RTOL
+        @test centroid(measured, 96) ≈ 168.0 rtol = 1e-6
+        @test spread(measured, 96) ≈ 8.0 rtol = 1e-4
+
+        # Imposed, they share the mean of each: one event, one yield, one kinetic energy.
+        @test row(symmetric, 96) ≈ row(symmetric, 140) rtol = RTOL
+        @test sum(row(symmetric, 96)) ≈ 6.0 rtol = RTOL
+        @test centroid(symmetric, 140) ≈ 170.0 rtol = 1e-6
+        @test spread(symmetric, 140) ≈ 9.0 rtol = 1e-4
+        # A mass whose complement is unmeasured keeps its own values, and the total is kept.
+        @test sum(row(symmetric, 150)) ≈ 2.0 rtol = RTOL
+        @test row(symmetric, 150) ≈ row(measured, 150) rtol = RTOL
+        @test sum(values(symmetric.values)) ≈ 14.0 rtol = RTOL
+    end
+end
+
+@testset "the pre-neutron identity imposed on a joint yield" begin
+    measured = MassEnergyYield(
+        Dict(
+            (96, 170.0) => 1.0,
+            (140, 170.0) => 3.0,
+            (96, 180.0) => 2.0,
+            (150, 160.0) => 5.0,
+        ),
+        [96, 140, 150],
+        [160.0, 170.0, 180.0],
+        "fixture",
+    )
+    symmetric = symmetrized_yield(measured, 236)
+    @test symmetric.values[(96, 170.0)] == symmetric.values[(140, 170.0)] == 2.0
+    # A cell whose complement is unmeasured is kept, and the sum is unchanged.
+    @test symmetric.values[(96, 180.0)] == 2.0
+    @test symmetric.values[(150, 160.0)] == 5.0
+    @test sum(values(symmetric.values)) == sum(values(measured.values))
+end
+
 @testset "one-dimensional mass yield" begin
     mktempdir() do dir
         path = joinpath(dir, "Y_vs_A.dat")
