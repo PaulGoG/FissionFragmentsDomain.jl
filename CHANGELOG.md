@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.0] - 2026-09-30
+
+Breaking: a kinetic-energy width is no longer assumed.
+
+- `factorized_yield` defaults to `dispersion = nothing`. A mass without a width is placed at its
+  mean kinetic energy, shared between the two grid energies that bracket it so that the mean is
+  exact; a mean outside the grid drops the mass. It was a Gaussian of 10 MeV.
+- `read_kinetic_energy_dispersion` defaults to `default = nothing`, so a mass the table does not
+  reach keeps no width. `kinetic_energy_dispersion` then returns `nothing`.
+- `uniform_kinetic_energy_dispersion` requires its width.
+- `DEFAULT_KINETIC_ENERGY_DISPERSION` is removed.
+
+The width of `P(TKE|A)` belongs to the experiment that measured `⟨TKE⟩(A)`. Where that experiment
+did not report one, the reconstruction now invents none.
+
 ## [0.1.9] - 2026-09-30
 
 - `recommended_mean_total_kinetic_energy` and `RECOMMENDED_MEAN_TOTAL_KINETIC_ENERGY`: the energy

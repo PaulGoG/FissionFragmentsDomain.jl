@@ -188,6 +188,51 @@ end
     end
 end
 
+@testset "a reconstruction without a width places each mass at its mean" begin
+    mktempdir() do directory
+        write(joinpath(directory, "Y.dat"), "A Y\n118 10.0\n119 20.0\n120 30.0\n")
+        write(joinpath(directory, "TKE.dat"), "A TKE\n118 170.0\n119 171.3\n120 250.0\n")
+        grid = 150.0:1.0:200.0
+        placed = factorized_yield(
+            joinpath(directory, "Y.dat"),
+            joinpath(directory, "TKE.dat"),
+            grid,
+            236;
+            total = 30.0,
+        )
+        cells(A) = Dict(T => Y for ((B, T), Y) in placed.values if B == A)
+        # On a grid energy the yield sits in that one cell.
+        @test cells(118) == Dict(170.0 => 10.0)
+        # Between two, it is shared so that the mean is exact and there is no other width.
+        shared = cells(119)
+        @test sort(collect(keys(shared))) == [171.0, 172.0]
+        @test sum(T * Y for (T, Y) in shared) / sum(values(shared)) ≈ 171.3 rtol = 1e-14
+        @test sum(values(shared)) ≈ 20.0 rtol = 1e-14
+        # A mean outside the grid drops the mass rather than moving it.
+        @test isempty(cells(120))
+        @test placed.masses == [118, 119]
+
+        # A measured table gives its masses their width; a mass it does not reach, with no
+        # default, keeps no width.
+        write(joinpath(directory, "sigma.dat"), "A sigma_TKE\n118 8.0\n")
+        partial = factorized_yield(
+            joinpath(directory, "Y.dat"),
+            joinpath(directory, "TKE.dat"),
+            grid,
+            236;
+            dispersion = read_kinetic_energy_dispersion(joinpath(directory, "sigma.dat")),
+            total = 30.0,
+        )
+        @test count(((B, _),) -> B == 118, keys(partial.values)) == length(grid)
+        @test count(((B, _),) -> B == 119, keys(partial.values)) == 2
+    end
+    @test read_kinetic_energy_dispersion isa Function
+    @test kinetic_energy_dispersion(
+        KineticEnergyDispersion(Dict(118 => 8.0), nothing, "fixture"),
+        140,
+    ) === nothing
+end
+
 @testset "the pre-neutron identity imposed on a joint yield" begin
     measured = MassEnergyYield(
         Dict(

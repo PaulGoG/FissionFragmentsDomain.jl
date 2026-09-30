@@ -1,7 +1,7 @@
 name = "FissionFragmentsDomain"
 uuid = "5f94ef1e-7421-42a3-adcf-a45cd611934b"
 authors = ["Paul-Adrian Gogîță"]
-version = "0.1.9"
+version = "0.2.0"
 
 [deps]
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"

@@ -127,7 +127,6 @@ export RatioAveraging,
     temperature_ratio_slope
 export KineticEnergyDispersion,
     KINETIC_ENERGY_DISPERSION_SPEC,
-    DEFAULT_KINETIC_ENERGY_DISPERSION,
     read_kinetic_energy_dispersion,
     uniform_kinetic_energy_dispersion,
     kinetic_energy_dispersion,

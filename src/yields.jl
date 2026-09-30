@@ -107,46 +107,43 @@ const KINETIC_ENERGY_DISPERSION_SPEC = TableSpec([:A, :sigma_TKE]; skip = 1)
 """
     KineticEnergyDispersion
 
-The dispersion `σ_TKE(A)` of `P(TKE|A)` in MeV, indexed by fragment mass, with `default`, a
-single width, used where a mass is not tabulated. Structured as [`ChargeDistribution`](@ref).
+The dispersion `σ_TKE(A)` of `P(TKE|A)` in MeV, indexed by fragment mass, with `default`, the
+width of a mass that is not tabulated. A `default` of `nothing` gives such a mass no width: a
+reconstruction then places its yield at its mean kinetic energy (see [`factorized_yield`](@ref)).
+That is the only choice that invents nothing when a measurement reports no width there.
 """
 struct KineticEnergyDispersion
     σ_TKE::Dict{Int, Float64}
-    default::Float64
+    default::Union{Float64, Nothing}
     source::String
 
     function KineticEnergyDispersion(
         σ_TKE::Dict{Int, Float64},
-        default::Real,
+        default::Union{Real, Nothing},
         source::AbstractString,
     )
-        default > 0 || throw(
-            ArgumentError(
-                "the default kinetic energy dispersion must be positive, got $default",
-            ),
-        )
-        return new(σ_TKE, Float64(default), String(source))
+        default === nothing ||
+            default > 0 ||
+            throw(
+                ArgumentError(
+                    "the default kinetic energy dispersion must be positive, got $default",
+                ),
+            )
+        return new(σ_TKE, default === nothing ? nothing : Float64(default), String(source))
     end
 end
-
-"""
-    DEFAULT_KINETIC_ENERGY_DISPERSION
-
-The single width of `P(TKE|A)` used where no table applies, in MeV. A stated value, not a fit;
-the yield-weighted widths of the shipped joint distributions lie between 7.9 and 9.6 MeV.
-"""
-const DEFAULT_KINETIC_ENERGY_DISPERSION = 10.0
 
 """
     read_kinetic_energy_dispersion(path; spec, default) -> KineticEnergyDispersion
 
 Read a tabulated `σ_TKE(A)`. Columns are taken by position, not by header text: mass number,
-then dispersion.
+then dispersion. `default` is the width of a mass the table does not reach; `nothing`, the
+default, gives it none.
 """
 function read_kinetic_energy_dispersion(
     path::AbstractString;
     spec::TableSpec = KINETIC_ENERGY_DISPERSION_SPEC,
-    default::Real = DEFAULT_KINETIC_ENERGY_DISPERSION,
+    default::Union{Real, Nothing} = nothing,
 )
     table = read_delimited_table(path, spec)
     masses = integer_column(table, :A)
@@ -167,15 +164,16 @@ end
 """
     uniform_kinetic_energy_dispersion(σ_TKE) -> KineticEnergyDispersion
 
-One width at every mass, the fallback of a reconstruction without a table.
+One stated width at every mass, for a reconstruction that is told to assume one.
 """
-uniform_kinetic_energy_dispersion(σ_TKE::Real = DEFAULT_KINETIC_ENERGY_DISPERSION) =
+uniform_kinetic_energy_dispersion(σ_TKE::Real) =
     KineticEnergyDispersion(Dict{Int, Float64}(), σ_TKE, "uniform")
 
 """
-    kinetic_energy_dispersion(dispersion, A) -> Float64
+    kinetic_energy_dispersion(dispersion, A) -> Union{Float64,Nothing}
 
-`σ_TKE` at fragment mass `A`, falling back to the single value where the table does not reach.
+`σ_TKE` at fragment mass `A`, falling back to the table's default where it does not reach;
+`nothing` where there is neither.
 """
 kinetic_energy_dispersion(dispersion::KineticEnergyDispersion, A::Integer) =
     get(dispersion.σ_TKE, Int(A), dispersion.default)
@@ -185,9 +183,9 @@ function Base.show(io::IO, dispersion::KineticEnergyDispersion)
         io,
         "KineticEnergyDispersion(",
         length(dispersion.σ_TKE),
-        " masses, default ",
-        dispersion.default,
-        " MeV, from ",
+        " masses, ",
+        dispersion.default === nothing ? "no default" : "default $(dispersion.default) MeV",
+        ", from ",
         basename(dispersion.source),
         ")",
     )
@@ -208,8 +206,14 @@ with `G` a Gaussian normalized over `energies`, from a measured pre-neutron mass
 a measured mean total kinetic energy `⟨TKE⟩(A)`. The result is a reconstruction that retains the
 mass dependence of `⟨TKE⟩`; a single mean at every mass over-subtracts at the asymmetric
 splits, where `⟨TKE⟩` is about 20 MeV lower than in the peaks, and inverts the heavy branch of
-`ν(A)`. The mass correlation of the width is carried only as far as `dispersion` supplies it,
-either a measured [`KineticEnergyDispersion`](@ref) or a single width in MeV.
+`ν(A)`. The width is carried only as far as `dispersion` supplies it: a measured
+[`KineticEnergyDispersion`](@ref) or a stated single width in MeV.
+
+Without a width, `dispersion = nothing` (the default) or a mass the table does not reach, the
+yield of a mass is placed at its mean kinetic energy. It is shared between the two grid energies
+that bracket the mean, in the proportions that make the mean exact. A quantity linear in `TKE`
+then takes its value at the mean, and a nonlinear one differs from the distributed result at
+second order in the width. A mean outside `energies` drops the mass.
 
 A mass without a tabulated `⟨TKE⟩` is dropped rather than extrapolated. A complementary mass,
 `compound_mass − A`, not tabulated itself inherits the mean of its partner, since `TKE` is a
@@ -230,11 +234,12 @@ function factorized_yield(
     kinetic_energy_path::AbstractString,
     energies,
     compound_mass::Integer;
-    dispersion::Union{Real, KineticEnergyDispersion} = DEFAULT_KINETIC_ENERGY_DISPERSION,
+    dispersion::Union{Nothing, Real, KineticEnergyDispersion} = nothing,
     total::Real = DEFAULT_YIELD_TOTAL,
     symmetrize::Bool = false,
 )
     widths =
+        dispersion === nothing ? nothing :
         dispersion isa KineticEnergyDispersion ? dispersion :
         uniform_kinetic_energy_dispersion(dispersion)
     grid = sort(unique(Float64.(collect(energies))))
@@ -271,8 +276,9 @@ function factorized_yield(
             (measured_yield[masses[row]] = yields[row])
     end
     symmetrize && (measured_yield = _complement_averaged(measured_yield, compound_mass))
-    width_by_mass =
-        symmetrize ? _complement_averaged(widths.σ_TKE, compound_mass) : widths.σ_TKE
+    tabulated = widths === nothing ? Dict{Int, Float64}() : widths.σ_TKE
+    width_by_mass = symmetrize ? _complement_averaged(tabulated, compound_mass) : tabulated
+    fallback = widths === nothing ? nothing : widths.default
 
     values = Dict{Tuple{Int, Float64}, Float64}()
     kept = Int[]
@@ -281,10 +287,20 @@ function factorized_yield(
         Y = measured_yield[A]
         mean = get(mean_by_mass, A, nothing)
         mean === nothing && continue
-        σ_TKE =
-            symmetrize ? get(width_by_mass, A) do
-                get(width_by_mass, Int(compound_mass) - A, widths.default)
-            end : kinetic_energy_dispersion(widths, A)
+        σ_TKE = get(width_by_mass, A) do
+            symmetrize ? get(width_by_mass, Int(compound_mass) - A, fallback) : fallback
+        end
+        if σ_TKE === nothing
+            placement = _mean_placement(grid, mean)
+            placement === nothing && continue
+            push!(kept, A)
+            for (index, share) in placement
+                cell = Y * share
+                values[(A, grid[index])] = cell
+                running += cell
+            end
+            continue
+        end
         shape = [exp(-(TKE - mean)^2 / (2 * σ_TKE^2)) for TKE in grid]
         norm = sum(shape)
         norm > 0 || continue
@@ -311,6 +327,16 @@ function factorized_yield(
         grid,
         string(basename(mass_yield_path), " × ", basename(kinetic_energy_path)),
     )
+end
+
+# The yield of a mass placed at its mean kinetic energy on `grid`: shared between the two grid
+# energies that bracket the mean, in the proportions that make it exact; `nothing` outside.
+function _mean_placement(grid::Vector{Float64}, mean::Float64)
+    (mean < first(grid) || mean > last(grid)) && return nothing
+    upper = searchsortedfirst(grid, mean)
+    grid[upper] == mean && return [(upper, 1.0)]
+    share = (mean - grid[upper - 1]) / (grid[upper] - grid[upper - 1])
+    return [(upper - 1, 1 - share), (upper, share)]
 end
 
 # The mean of the values at A and at its complement where both are tabulated; a value whose
