@@ -1,4 +1,17 @@
 [deps]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
+FissionFragmentsDomain = "5f94ef1e-7421-42a3-adcf-a45cd611934b"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+FissionFragmentsDomain = {path = ".."}
+
+[compat]
+Aqua = "0.8"
+ExplicitImports = "1.15"
+JET = "0.12"
+Measurements = "2.14"

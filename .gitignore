@@ -1,6 +1,21 @@
-*.jl.*.cov
-*.jl.cov
-*.jl.mem
-/Manifest*.toml
-/docs/Manifest*.toml
+# Input data. Only the atomic mass evaluation is shipped; data/README.md documents the formats
+# the readers accept, and third-party tables stay with the pipelines that consume them.
+/data/*
+!/data/README.md
+!/data/mass_excess_ame2020.dat
+
+# Libraries do not pin a manifest; each environment resolves against [compat].
+Manifest*.toml
+
+# Julia artifacts
 /docs/build/
+/docs/site/
+*.cov
+*.jl.mem
+LocalPreferences.toml
+
+# Editor and OS
+.vscode/
+.idea/
+*~
+.DS_Store

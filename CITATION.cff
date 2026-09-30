@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+title: FissionFragmentsDomain.jl
+abstract: >-
+  The fragments of binary fission as models of prompt emission and of the excitation-energy
+  partition see them: fissioning systems, the atomic mass evaluation, the isobaric charge
+  distribution and the fragmentation domain built from it, fragment level density parameters,
+  the energy balance, the relation between the temperature ratio of a fragment pair and the
+  division of its excitation energy, fragment yields and averages over them, and the run record
+  through which a temperature-ratio extraction hands its curves to a consumer.
+type: software
+authors:
+  - family-names: Gogîță
+    given-names: Paul-Adrian
+license: MIT
+repository-code: https://github.com/PaulGoG/FissionFragmentsDomain.jl
+keywords:
+  - nuclear fission
+  - fission fragments
+  - isobaric charge distribution
+  - level density
+  - excitation energy partition
+  - temperature ratio
+  - Julia

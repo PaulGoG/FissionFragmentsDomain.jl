@@ -1,0 +1,8 @@
+* text=auto
+
+*.pdf binary
+*.png binary
+
+# Reference outputs are kept byte-faithful to the run that produced them, at every depth:
+# they are laid out one directory per fissioning system.
+test/references/**/*.dat -text
