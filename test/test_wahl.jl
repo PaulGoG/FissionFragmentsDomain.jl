@@ -145,93 +145,38 @@ end
     @test_throws ArgumentError effective_charge_distribution(systematics, Int[])
 end
 
-guarded(CHARGE_DISTRIBUTION_AVAILABLE, "Wahl systematics against the evaluated tables") do
-    @testset "Wahl systematics against the evaluated tables" begin
-        # An external check, against numbers this package did not produce. The shipped tables are a
-        # per-reaction least-squares fit of the same model — Fig. 18 quotes reduced χ² of 2.9 for
-        # that against 7.9 for these systematics — so they agree in structure without coinciding, and
-        # what is pinned here is structure and size, not identity. A transcription error in Table 2
-        # would break all of it; the internal tests above would not notice.
-        table = mass_table()
-        systems = (
-            (
-                "235-U(n_th,f)",
-                U235_CHARGE_DISTRIBUTION_FILE,
-                neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth"),
-                0.11,
-            ),
-            (
-                "252-Cf(sf)",
-                CF252_CHARGE_DISTRIBUTION_FILE,
-                spontaneous_fission(Nuclide(98, 252)),
-                0.30,
-            ),
-        )
+@testset "the systematics against the per-reaction fits" begin
+    # An external check of the transcription of LA-13928, against the 1988 fits of the same
+    # model to four reactions' own data, both from public sources. The systematics is a trend
+    # across reactions, so the two agree in structure without coinciding.
+    table = mass_table()
+    cases = (
+        (neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth"), 118:160, 0.04),
+        (neutron_induced_fission(Nuclide(92, 233), 2.53e-8, "nth"), 117:160, 0.05),
+        (neutron_induced_fission(Nuclide(94, 239), 2.53e-8, "nth"), 120:160, 0.13),
+    )
+    for (system, masses, bound) in cases
+        fit = wahl_1988(system)
+        systematics = WahlSystematics(table, system)
+        differences = [
+            abs(charge_polarization(fit, A) - charge_polarization(systematics, A)) for
+            A in masses
+        ]
+        @test sum(differences) / length(differences) < bound
 
-        for (name, path, system, tolerance) in systems
-            isfile(path) || continue
-            evaluated = read_charge_distribution(path)
-            systematics = WahlSystematics(table, system)
-
-            # Mean absolute difference over the whole heavy branch, held loosely because the two
-            # parameter sets are a systematics and a per-reaction fit of the same model and are
-            # not meant to coincide.
-            #
-            # Where the difference sits is not the same in every case, and it is worth not
-            # assuming. Measured over the shipped tables: for 252-Cf the Zₚ = 50 crossing
-            # dominates — the largest difference is 0.75 at A = 130 against Bb = 126.8, and the
-            # mean falls from 0.26 to 0.14 with the crossing region excluded — because SL50 is
-            # extrapolated 16 mass units past the data it was fitted on and a small horizontal
-            # offset costs a large pointwise difference on the steepest leg. For 235-U the
-            # largest difference is also at the crossing but the mean barely moves without it,
-            # 0.062 to 0.059: the disagreement is a broad offset across the branch. For 239-Pu
-            # the crossing is not where it lives at all — the largest difference, 0.25, is at
-            # A = 157, inside the peak-region leg, and excluding the crossing makes the mean
-            # worse rather than better.
-            differences =
-                [abs(wahl_polarization(systematics, A) - ΔZ) for (A, ΔZ) in evaluated.ΔZ]
-            @test sum(differences) / length(differences) < tolerance
-
-            # The narrow σ_Z band is the crossing made visible. Both the model and the table must
-            # have one, and they must agree on where it is to within a few mass units.
-            masses = sort(collect(keys(evaluated.σ_Z)))
-            widths = [evaluated.σ_Z[A] for A in masses]
-            threshold = minimum(widths) + 0.25 * (maximum(widths) - minimum(widths))
-            tabulated_band = [A for (A, w) in zip(masses, widths) if w < threshold]
-            @test !isempty(tabulated_band)
-            @test abs(minimum(tabulated_band) - systematics.Bb) < 3.0
-            @test abs(
-                (minimum(tabulated_band) + maximum(tabulated_band)) / 2 -
-                (systematics.Bb + systematics.B4) / 2,
-            ) < 10.0
-
-            # Bb is the mass at which ΔZ attains ΔZ_max, so the table's own maximum is where it
-            # should be. This is what settles eq. (12): the blended A'_max lands within a mass unit
-            # of it, and either estimate taken alone does worse. Zₚ there is recorded alongside,
-            # since it is the quantity the interval is named for and the blend does not reach 50
-            # exactly except where F₁ vanishes.
-            polarizations = [evaluated.ΔZ[A] for A in masses]
-            @test abs(masses[argmax(polarizations)] - systematics.Bb) < 1.5
-            crossing =
-                systematics.Bb * systematics.Z_F / systematics.A_F + systematics.ΔZmax
-            @test 49.0 < crossing <= 50.0 + 1e-9
-        end
-
-        # Where A' = 140 falls inside the peak region the model is at its best determined, and the
-        # agreement is then a real number rather than a bound. 240-Pu is the case: σ_Z(140) is
-        # 0.59141 against a tabulated 0.59131.
-        plutonium = joinpath(DATA, "Pu239_nth", "charge_distribution_vs_A.dat")
-        if isfile(plutonium)
-            evaluated = read_charge_distribution(plutonium)
-            systematics = WahlSystematics(
-                table,
-                neutron_induced_fission(Nuclide(94, 239), 2.53e-8, "nth"),
-            )
-            @test 140 > systematics.B4
-            @test wahl_dispersion(systematics, 140) ≈ charge_dispersion(evaluated, 140) atol =
-                1e-3
-        end
+        # Both place the Z = 50 crossing at the same masses: the systematics' Bb, where ΔZ is
+        # largest, within a mass unit of the fit's A'_m, and its B4 within 1.5 of the junction.
+        @test abs(systematics.Bb - fit.A_m) < 1.0
+        @test abs(systematics.B4 - fit.A_J) < 1.5
     end
+
+    # 252-Cf is where the trend is poorest. SL50 is extrapolated 16 mass units past the data it
+    # was fitted on, B4 lands near 148 against the fit's junction near 130, and σ_Z(140) exceeds
+    # the fitted width by 0.13.
+    cf = WahlSystematics(table, CF252)
+    fit = wahl_1988(CF252)
+    @test cf.B4 - fit.A_J > 15
+    @test charge_dispersion(cf, 140) - fit.σZ > 0.1
 end
 
 @testset "even-odd factors" begin
@@ -274,35 +219,4 @@ end
     flat ./= sum(flat)
     @test charge_moments(collect(40:70), flat)[2] ≈ sqrt(0.566^2 + 1 / 12) rtol = 1e-3
     @test_throws ArgumentError wahl_even_odd_factors(w, 100)
-end
-
-guarded(
-    CHARGE_DISTRIBUTION_AVAILABLE && U235_POLARIZATION_AVAILABLE,
-    "the 1988 model is the closest of the layers to the supplied tables",
-) do
-    @testset "the 1988 model is the closest of the layers to the supplied tables" begin
-        # The supplied tables are of the same lineage as Wahl (1988) but not a reproduction of
-        # it. Reduced to effective Gaussians, the 1988 model at fragment level lies within a few
-        # hundredths of them in both ΔZ and width, and nearer than the systematics everywhere.
-        table = mass_table()
-        for (path, system, bound) in (
-            (
-                U235_CHARGE_DISTRIBUTION_FILE,
-                neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth"),
-                0.035,
-            ),
-            (CF252_CHARGE_DISTRIBUTION_FILE, spontaneous_fission(Nuclide(98, 252)), 0.025),
-        )
-            evaluated = read_charge_distribution(path)
-            masses = sort([A for A in keys(evaluated.σ_Z) if 2A >= system.compound.A])
-            reaction = effective_charge_distribution(charge_model(table, system), masses)
-            systematics =
-                effective_charge_distribution(WahlSystematics(table, system), masses)
-            mad(d, f) = sum(abs(f(d, A) - f(evaluated, A)) for A in masses) / length(masses)
-            @test mad(reaction, charge_polarization) < bound
-            @test mad(reaction, charge_dispersion) < bound
-            @test mad(reaction, charge_polarization) < mad(systematics, charge_polarization)
-            @test mad(reaction, charge_dispersion) < mad(systematics, charge_dispersion)
-        end
-    end
 end

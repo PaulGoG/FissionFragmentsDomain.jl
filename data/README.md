@@ -75,66 +75,25 @@ that, which the reader discards rather than storing as a correction of zero.
 
 ## Charge distributions
 
-**`<system>/charge_distribution_vs_A.dat`** — charge polarization `ΔZ(A)` and the dispersion
-`σ_Z(A)` of the isobaric charge distribution. A. C. Wahl, *Atomic Data and Nuclear Data Tables*
-**39**, 1 (1988); the model is set out in full in Wahl, *Systematics of Fission-Product Yields*,
-LA-13928 (2002), which is openly published by the Los Alamos National Laboratory. That report's
-own bibliography gives the 1988 paper as volume **39**, as does the reference list of
-IAEA-TECDOC-1168, in which Wahl's later account of the same models appears.
+No charge-distribution table ships, and none is needed. `charge_model` builds the isobaric charge
+distribution from Wahl's `Zₚ` model, whose every number traces to a public source:
 
-Two different objects share that format and must not be confused, and the difference is not one
-of quality alone.
-
-The four `<system>/charge_distribution_vs_A.dat` files — `Cf252_sf`, `U235_nth`, `Pu239_nth` and
-`U233_nth` — are supplied evaluations, not outputs of this package. Their signatures identify them
-as **effective Gaussian parameters**: a `Zₚ` evaluation per reaction with its own least-squares
-parameters and the even-odd factors `F_Z` and `F_N` folded in, reduced to a plain Gaussian at each
-mass, whose centre less `Z_UCD(A)` is `ΔZ(A)` and whose width is `σ_Z(A)`. The construction in
-`src/wahl.jl` reproduces the period of their ripple but not their values: it deviates from the
-tables by 0.04–0.12 in `ΔZ` and 0.07–0.10 in `σ_Z`, as mean absolute deviations over each
-system's mass range. The tables are therefore not regenerated here from the published parameters;
-they remain staged inputs of documented lineage — the evaluation of A. Tudora, *Phys. Procedia*
-**64**, 62 (2015), doi:10.1016/j.phpro.2015.04.008, applying the 1988 model. Wahl's own
-least-squares `σ_Z` is a different quantity — a model parameter that carries no even-odd
-structure.
-
-That is why these tables oscillate with a period of about five mass units while the systematics
-cannot: the even-odd effect is *inside* them. The period follows from the mechanism — `Zₚ`
-advances by `Z_F/A_F` per mass unit, so even-charge dominance recurs once it has advanced by two,
-every `2A_F/Z_F ≈ 5.1` masses.
-
-**So a plain Gaussian `p(Z,A)` is the right partner for these tables**, which is what this package
-uses: the even-odd modulation is already absorbed into the fitted width and centre, and nothing
-further has to be applied or renormalized away. Averaged over each system's own measured `Y(A)`
-they return
-
-| | `⟨ΔZ⟩` | `⟨σ_Z⟩` | masses |
-|---|---|---|---|
-| ²⁵²Cf(sf) | −0.492 | 0.649 | 126–169 |
-| ²³⁵U(n_th,f) | −0.503 | 0.618 | 118–160 |
-| ²³⁹Pu(n_th,f) | −0.515 | 0.614 | 120–160 |
-| ²³³U(n_th,f) | −0.499 | 0.615 | 117–160 |
-
-which is where the conventional fallbacks of `|0.5|` and `0.6` come from, and is the sense in
-which those fallbacks are not arbitrary.
-
-They are authoritative wherever they exist. Where they do not, `charge_model` builds the `Zₚ`
-model from published parameters rather than reaching for the means.
-
-- **The reaction's own parameters.** Table A of the 1988 paper carries least-squares parameters for
-  exactly these four reactions. `Wahl1988` reproduces that evaluation's own calculated tables
-  row by row.
-- **The systematics.** Eq. (17) and Table 2 of LA-13928 estimate the same parameters from `Z_F`,
-  `A_F` and the excitation energy, for any reaction in `90 ≤ Z_F ≤ 98`, `230 ≤ A_F ≤ 252`,
-  `PE ≤ 8 MeV`.
+- **The reaction's own parameters.** Table A of A. C. Wahl, *At. Data Nucl. Data Tables* **39**, 1
+  (1988), doi:10.1016/0092-640X(88)90016-2, fits them for ²³⁵U(n_th,f), ²³³U(n_th,f),
+  ²³⁹Pu(n_th,f) and ²⁵²Cf(sf). `Wahl1988` reproduces that evaluation's own Tables I–IV row by
+  row, and the test suite checks it against them, transcribed in
+  `test/references/wahl1988/`.
+- **The systematics.** Eq. (17) and Table 2 of A. C. Wahl, *Systematics of Fission-Product Yields*,
+  LA-13928 (2002), doi:10.2172/809574, estimate the parameters from `Z_F`, `A_F` and the
+  excitation energy, for any reaction in `90 ≤ Z_F ≤ 98`, `230 ≤ A_F ≤ 252`, `PE ≤ 8 MeV`.
+- **The conventional means**, `ΔZ = −0.5` and `σ_Z = 0.6`, elsewhere.
 
 Fig. 18 of LA-13928 quotes a reduced `χ²` of 2.9 for the first against 7.9 for the second, on
-²³⁵U(n_th,f). Neither needs a file.
+²³⁵U(n_th,f).
 
-Reduced to effective Gaussians at fragment mass, the 1988 model comes within a mean absolute
-0.020–0.029 of the supplied tables in `ΔZ` and 0.010–0.030 in width. This is the closest any
-public construction here comes to them, but it is not a reproduction: the tables remain inputs of
-documented lineage.
+A consumer holding an evaluated table of its own can still read it with
+`read_charge_distribution`, in the `A dZ sigma_Z` layout above. Such a table is an input of the
+consumer's, not of this package.
 
 ## Temperature-ratio run records
 

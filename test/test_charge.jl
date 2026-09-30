@@ -1,6 +1,8 @@
-guarded(CHARGE_DISTRIBUTION_AVAILABLE, "charge distribution") do
-    @testset "charge distribution" begin
-        distribution = cf252_charge_distribution()
+@testset "charge distribution" begin
+    mktempdir() do dir
+        path = joinpath(dir, "charge_distribution_vs_A.dat")
+        write(path, "A dZ sigma_Z\n126 0.41847 0.50029\n127 0.2 0.45\n")
+        distribution = read_charge_distribution(path)
         @test charge_polarization(distribution, 126) ≈ 0.41847 rtol = RTOL
         @test charge_dispersion(distribution, 126) ≈ 0.50029 rtol = RTOL
 
@@ -8,24 +10,16 @@ guarded(CHARGE_DISTRIBUTION_AVAILABLE, "charge distribution") do
         # documented behaviour rather than a silent zero.
         @test charge_polarization(distribution, 300) == -0.5
         @test charge_dispersion(distribution, 300) == 0.6
-
-        mean = mean_charge_distribution()
-        @test charge_polarization(mean, 126) == -0.5
-        @test charge_dispersion(mean, 126) == 0.6
     end
+
+    mean = mean_charge_distribution()
+    @test charge_polarization(mean, 126) == -0.5
+    @test charge_dispersion(mean, 126) == 0.6
 end
 
 @testset "a mass column written in floating point still reads" begin
-    # The 235-U table writes its mass column as 118.0, 119.0, … because a generator emitted it
-    # in floating point. Read strictly as Int the file cannot be loaded at all, which blocked
-    # 235-U entirely. Checked against the shipped table where it is present, and against a
-    # written fixture regardless, so the behaviour is pinned on a bare clone too.
-    if U235_POLARIZATION_AVAILABLE
-        distribution = read_charge_distribution(U235_CHARGE_DISTRIBUTION_FILE)
-        @test charge_polarization(distribution, 118) ≈ 0.00137468 rtol = RTOL
-        @test charge_dispersion(distribution, 118) ≈ 0.62081 rtol = RTOL
-    end
-
+    # Generators that write in floating point emit the mass column as 118.0, 119.0, …; read
+    # strictly as Int such a file could not be loaded at all.
     mktempdir() do dir
         floating = joinpath(dir, "floating.dat")
         write(floating, "A ΔZ rms\n118.0 0.00137468 0.62081\n119.0 0.0766041 0.6204323\n")

@@ -1,31 +1,22 @@
 # Reference data
 
-Output of the implementation submitted with the 2023 MSc thesis, kept here so this package can
-be pinned against it. The configuration these files come from:
+## `Cf252_sf/`
 
-| | |
-|---|---|
-| Fissioning system | ²⁵²Cf(SF) |
-| Heavy fragment masses | 126 … 174 |
-| TKE grid | 130 … 230 MeV, step 2 MeV |
-| Charge numbers per mass | 5 |
-| Mass excesses | the 2020 atomic mass evaluation |
-| Charge distribution | the per-reaction `ΔZ(A)`, `σ_Z(A)` fit for ²⁵²Cf |
-| Evaporation cross section | variable |
-| Level density parameter | back-shifted Fermi gas |
+Two tables over the ²⁵²Cf(sf) fragment domain, `A_H` 126–174, five charge numbers per mass. The
+2023 MSc thesis implementation computed them first, and this package is pinned against them:
 
-The quantities kept here precede the TXE partition, so they are the same in both archived runs.
-Files are named by the `<quantity>_vs_<abscissa>` rule used for every table in the toolchain.
+| File | Content | Rests on |
+|---|---|---|
+| `Q_vs_A_H_Z_H.dat` | `Q(A_H, Z_H)` in MeV, 245 rows, one per fragmentation | the 2020 atomic mass evaluation, doi:10.1088/1674-1137/abddb0 and doi:10.1088/1674-1137/abddaf |
+| `a_vs_A_H_Z_H.dat` | `a(A, Z)` in MeV⁻¹ over the fragment domain | the back-shifted Fermi-gas systematics of von Egidy and Bucurescu, doi:10.1103/PhysRevC.72.044311, doi:10.1103/PhysRevC.73.049901, doi:10.1103/PhysRevC.80.054310, with the same mass evaluation |
 
-| File, under `Cf252_sf/` | Content |
-|---|---|
-| `Q_vs_A_H_Z_H.dat` | `Q(A_H, Z_H)` in MeV, 245 rows — one per fragmentation |
-| `a_vs_A_H_Z_H.dat` | `a(A, Z)` in MeV⁻¹ over the fragment domain |
-| `Y_vs_A.dat`, `Y_vs_Z.dat`, `Y_vs_TKE.dat`, `TKE_vs_A_H.dat` | the fragment yield projections |
+Both are functions of those public evaluations alone, so they can be regenerated from them. Only
+the header lines were rewritten when the naming convention was applied. `.gitattributes` keeps the
+files exempt from line-ending normalisation.
 
-Only the header lines were rewritten when the naming convention was applied; every data row is
-byte-identical to what the archived run produced, and `.gitattributes` keeps these files exempt
-from line-ending normalisation so they stay that way.
+## `wahl1988/`
 
-These are not inputs. They exist so that a change in the physics shows up as a failing test
-rather than as a number nobody checked.
+Tables I–IV of Wahl (1988), doi:10.1016/0092-640X(88)90016-2; see the README there.
+
+These are not inputs. They exist so that a change in the physics shows up as a failing test,
+not as a number nobody checked.

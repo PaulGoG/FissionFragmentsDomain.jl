@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.2] - 2026-09-30
+
+- Every shipped test reference and fixture now rests on a public source.
+  - The ²⁵²Cf fixtures take Wahl's 1988 model in place of a supplied charge table, so the domain
+    and energetics tests run on a bare clone.
+  - The archived-run yield projections, whose input table has no citable origin, are no longer
+    shipped.
+  - The comparison of the systematics with evaluated tables is now against the 1988 fits.
+- `data/README.md` describes the charge distribution by its public route.
+
 ## [0.1.1] - 2026-09-30
 
 - `charge_model` returns a `ChargeModel` on every path; where the systematics cannot form the

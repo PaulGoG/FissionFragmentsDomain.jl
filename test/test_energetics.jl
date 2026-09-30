@@ -42,72 +42,69 @@ end
     @test energetics(table, CF252, entry, 400.0) === nothing
 end
 
-guarded(CHARGE_DISTRIBUTION_AVAILABLE, "the kinetic energy grid is validated") do
-    @testset "the kinetic energy grid is validated" begin
-        table = mass_table()
-        domain = cf252_domain()
+@testset "the kinetic energy grid is validated" begin
+    table = mass_table()
+    domain = cf252_domain()
 
-        # TKE is validated like the mass range beside it. Since TXE = Q + E*_CN − TKE, a
-        # negative TKE raises the excitation energy, so unchecked configurations would pass the
-        # TXE > 0 test and the sweep would return results.
-        @test_throws ArgumentError sweep_energetics(table, CF252, domain, [-50.0, -10.0])
+    # TKE is validated like the mass range beside it. Since TXE = Q + E*_CN − TKE, a
+    # negative TKE raises the excitation energy, so unchecked configurations would pass the
+    # TXE > 0 test and the sweep would return results.
+    @test_throws ArgumentError sweep_energetics(table, CF252, domain, [-50.0, -10.0])
 
-        # An empty grid would give a sweep of zero records, indistinguishable from a physical
-        # exclusion.
-        @test_throws ArgumentError sweep_energetics(table, CF252, domain, Float64[])
+    # An empty grid would give a sweep of zero records, indistinguishable from a physical
+    # exclusion.
+    @test_throws ArgumentError sweep_energetics(table, CF252, domain, Float64[])
 
-        @test_throws ArgumentError sweep_energetics(table, CF252, domain, [130.0, NaN])
-        @test_throws ArgumentError sweep_energetics(table, CF252, domain, 230.0:-2.0:130.0)
-        @test_throws ArgumentError sweep_energetics(table, CF252, domain, [130.0, 130.0])
-        @test_throws ArgumentError sweep_energetics(table, CF252, domain, [0.0, 130.0])
+    @test_throws ArgumentError sweep_energetics(table, CF252, domain, [130.0, NaN])
+    @test_throws ArgumentError sweep_energetics(table, CF252, domain, 230.0:-2.0:130.0)
+    @test_throws ArgumentError sweep_energetics(table, CF252, domain, [130.0, 130.0])
+    @test_throws ArgumentError sweep_energetics(table, CF252, domain, [0.0, 130.0])
 
-        # A valid grid still sweeps.
-        accepted, excluded = sweep_energetics(table, CF252, domain, [150.0, 180.0])
-        @test !isempty(accepted)
-    end
+    # A valid grid still sweeps.
+    accepted, excluded = sweep_energetics(table, CF252, domain, [150.0, 180.0])
+    @test !isempty(accepted)
 end
 
-guarded(CHARGE_DISTRIBUTION_AVAILABLE, "sweeping the domain") do
-    @testset "sweeping the domain" begin
-        table = mass_table()
-        domain = cf252_domain()
-        accepted, excluded = sweep_energetics(table, CF252, domain, CF252_TKE)
+@testset "sweeping the domain" begin
+    table = mass_table()
+    domain = cf252_domain()
+    accepted, excluded = sweep_energetics(table, CF252, domain, CF252_TKE)
 
-        # The declared grid: 245 fragmentations × 51 kinetic energies.
-        @test length(accepted) + length(excluded) == 245 * 51 == 12495
+    # The declared grid: 245 fragmentations × 51 kinetic energies.
+    @test length(accepted) + length(excluded) == 245 * 51 == 12495
 
-        # Nothing is dropped silently — every exclusion carries its reason, so the coverage of a
-        # run can be audited from its own output.
-        summary = exclusion_summary(excluded)
-        @test sum(values(summary)) == length(excluded)
-        @test issubset(
-            keys(summary),
-            Set([:missing_mass, :nonpositive_q, :nonpositive_txe]),
-        )
+    # Nothing is dropped silently — every exclusion carries its reason, so the coverage of a
+    # run can be audited from its own output.
+    summary = exclusion_summary(excluded)
+    @test sum(values(summary)) == length(excluded)
+    @test issubset(keys(summary), Set([:missing_mass, :nonpositive_q, :nonpositive_txe]))
 
-        # Every 252Cf fragmentation in this range has a tabulated mass and a positive Q, so the
-        # only reason a configuration drops out is TXE ≤ 0 at high kinetic energy.
-        @test get(summary, :missing_mass, 0) == 0
-        @test get(summary, :nonpositive_q, 0) == 0
+    # One fragmentation reaches a nuclide the mass evaluation does not tabulate: at A = 173 the
+    # charge window of the 1988 model reaches ¹⁷³Gd (with ⁷⁹Se, p = 8×10⁻⁴), excluded at every
+    # kinetic energy with its reason. Every other fragmentation has a positive Q, so otherwise
+    # a configuration drops out only for TXE ≤ 0 at high kinetic energy.
+    missing = unique(e.fragmentation.heavy for e in excluded if e.reason == :missing_mass)
+    @test missing == [Nuclide(64, 173)]
+    @test get(summary, :missing_mass, 0) == length(CF252_TKE)
+    @test get(summary, :nonpositive_q, 0) == 0
 
-        # TXE falls monotonically with TKE at fixed Q, so for each fragmentation the excluded
-        # kinetic energies must form an upper tail of the grid — never a hole in the middle.
-        dropped = Dict{Tuple{Int, Int}, Vector{Float64}}()
-        for exclusion in excluded
-            key = (exclusion.fragmentation.heavy.A, exclusion.fragmentation.heavy.Z)
-            push!(get!(dropped, key, Float64[]), exclusion.TKE)
-        end
-        grid = collect(CF252_TKE)
-        @test all(
-            sort(energies) == grid[(end - length(energies) + 1):end] for
-            energies in values(dropped)
-        )
-        @test !isempty(dropped)
-
-        # Every accepted configuration has a positive TXE carrying a non-zero uncertainty.
-        @test minimum(value(result.TXE) for result in accepted) > 0
-        @test minimum(uncertainty(result.TXE) for result in accepted) > 0
+    # TXE falls monotonically with TKE at fixed Q, so for each fragmentation the excluded
+    # kinetic energies must form an upper tail of the grid — never a hole in the middle.
+    dropped = Dict{Tuple{Int, Int}, Vector{Float64}}()
+    for exclusion in excluded
+        key = (exclusion.fragmentation.heavy.A, exclusion.fragmentation.heavy.Z)
+        push!(get!(dropped, key, Float64[]), exclusion.TKE)
     end
+    grid = collect(CF252_TKE)
+    @test all(
+        sort(energies) == grid[(end - length(energies) + 1):end] for
+        energies in values(dropped)
+    )
+    @test !isempty(dropped)
+
+    # Every accepted configuration has a positive TXE carrying a non-zero uncertainty.
+    @test minimum(value(result.TXE) for result in accepted) > 0
+    @test minimum(uncertainty(result.TXE) for result in accepted) > 0
 end
 
 @testset "kinetic energy of a fragment" begin

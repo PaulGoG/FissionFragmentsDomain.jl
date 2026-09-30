@@ -5,32 +5,15 @@ const CF252_HEAVY_MASSES = 126:174
 const CF252_TKE = 130.0:2.0:230.0
 const CF252_CHARGES_PER_MASS = 5
 
-# The atomic mass evaluation ships with the package, so everything pinned against the archived
-# run — Q and the level density parameter — runs on a bare clone. The charge distribution
-# tables, the shell corrections and the yields do not ship: they are third-party tables this
-# package has no licence to redistribute, and they belong to the pipelines that consume it. The
-# tests that need them read a data directory laid out as `data/README.md` describes, taken from
-# `FISSION_FRAGMENTS_DOMAIN_TEST_DATA` when set, and are skipped when a file is absent.
+# Every fixture rests on a public source: the shipped AME2020 table, and for the charge
+# distribution Wahl's 1988 model of ²⁵²Cf(sf), which reproduces that evaluation's own tables.
+# The Gilbert–Cameron shell corrections are not shipped; the tests that need them read a data
+# directory laid out as `data/README.md` describes, taken from `FISSION_FRAGMENTS_DOMAIN_TEST_DATA`
+# when set, and are skipped when the file is absent.
 const MASS_EXCESS_FILE = String(AME2020_MASS_EXCESS_FILE)
-const CF252_CHARGE_DISTRIBUTION_FILE =
-    joinpath(DATA, "Cf252_sf", "charge_distribution_vs_A.dat")
-const U235_CHARGE_DISTRIBUTION_FILE =
-    joinpath(DATA, "U235_nth", "charge_distribution_vs_A.dat")
-
 const SHELL_CORRECTION_FILE =
     joinpath(DATA, "reference", "shell_corrections_gilbert_cameron.dat")
-
-const CHARGE_DISTRIBUTION_AVAILABLE = isfile(CF252_CHARGE_DISTRIBUTION_FILE)
-const U235_POLARIZATION_AVAILABLE = isfile(U235_CHARGE_DISTRIBUTION_FILE)
 const SHELL_CORRECTIONS_AVAILABLE = isfile(SHELL_CORRECTION_FILE)
-
-const CF252_YIELD_FILE = joinpath(DATA, "Cf252_sf", "Y_vs_A_TKE.dat")
-const YIELD_AVAILABLE = isfile(CF252_YIELD_FILE)
-
-CHARGE_DISTRIBUTION_AVAILABLE || @warn """
-    charge distribution table not present; the tests that build a fragmentation domain from it \
-    are skipped. Set FISSION_FRAGMENTS_DOMAIN_TEST_DATA to a data directory laid out as \
-    data/README.md describes to run them.""" file = CF252_CHARGE_DISTRIBUTION_FILE
 
 # Relative tolerance of `isapprox` between Float64 operands when none is given.
 const RTOL = sqrt(eps(Float64))
@@ -55,7 +38,7 @@ guarded(body::Function, flag::Bool, name::AbstractString) = guarded(flag, name, 
 
 mass_table() = read_mass_excess_table(MASS_EXCESS_FILE)
 
-cf252_charge_distribution() = read_charge_distribution(CF252_CHARGE_DISTRIBUTION_FILE)
+cf252_charge_distribution() = WAHL_1988[(98, 252)]
 
 cf252_domain() = fragmentation_domain(
     CF252,

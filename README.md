@@ -64,9 +64,9 @@ julia check.jl                     # format, then run the tests
 julia docs/make.jl                 # build the documentation into docs/build
 ```
 
-The tests that need third-party tables (charge distributions, shell corrections, yields) read a
-data directory laid out as `data/README.md` describes, and are reported as skipped where it is
-absent:
+Every test rests on a public source shipped with the package, except two that need the
+Gilbert–Cameron shell-correction table. Those read a data directory laid out as `data/README.md`
+describes, and are reported as skipped where it is absent:
 
 ```bash
 FISSION_FRAGMENTS_DOMAIN_TEST_DATA=/path/to/data julia check.jl
@@ -129,7 +129,7 @@ FissionFragmentsDomain.jl/
 ├── test/
 │   ├── runtests.jl, physics.jl, activate.jl, Project.toml
 │   ├── test_*.jl
-│   └── references/           the archived ²⁵²Cf run; Wahl (1988), Tables I–IV
+│   └── references/           Q and a over the ²⁵²Cf domain; Wahl (1988), Tables I–IV
 ├── activate.jl
 ├── check.jl
 ├── CHANGELOG.md
