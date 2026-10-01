@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.2] - 2026-10-01
+
+- With `symmetrize = true`, `factorized_yield` lets a mass yield whose complement is not
+  tabulated stand for that complement as well, as it already did for `⟨TKE⟩(A)` and `σ_TKE(A)`.
+  A yield measured on one wing only now gives both, as the docstring said; before, the unpaired
+  mass was kept and its partner left without yield.
+- `symmetrized_yield` likewise copies an unpaired cell `(A, TKE)` onto `(A₀ − A, TKE)` and lists
+  the added masses. The sum grows by the yield of the unpaired cells; where every complement is
+  measured it is unchanged.
+
 ## [0.2.1] - 2026-10-01
 
 - `read_kinetic_energy_dispersion` accepts the optional uncertainty column,

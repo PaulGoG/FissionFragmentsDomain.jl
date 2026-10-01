@@ -187,15 +187,19 @@ end
         @test centroid(measured, 96) ≈ 168.0 rtol = 1e-6
         @test spread(measured, 96) ≈ 8.0 rtol = 1e-4
 
-        # Imposed, they share the mean of each: one event, one yield, one kinetic energy.
+        # Imposed, they share the mean of each: one event, one yield, one kinetic energy. The
+        # unmeasured complement of 150, 86, joins with 150's values, so the measured 6 + 6 + 2
+        # becomes 16 before the renormalization to 14.
+        scale = 14.0 / 16.0
         @test row(symmetric, 96) ≈ row(symmetric, 140) rtol = RTOL
-        @test sum(row(symmetric, 96)) ≈ 6.0 rtol = RTOL
+        @test sum(row(symmetric, 96)) ≈ 6.0 * scale rtol = RTOL
         @test centroid(symmetric, 140) ≈ 170.0 rtol = 1e-6
         @test spread(symmetric, 140) ≈ 9.0 rtol = 1e-4
-        # A mass whose complement is unmeasured keeps its own values, and the total is kept.
-        @test sum(row(symmetric, 150)) ≈ 2.0 rtol = RTOL
-        @test row(symmetric, 150) ≈ row(measured, 150) rtol = RTOL
+        @test row(symmetric, 86) ≈ row(symmetric, 150) rtol = RTOL
+        @test row(symmetric, 150) ≈ scale * row(measured, 150) rtol = RTOL
+        @test 86 in symmetric.masses
         @test sum(values(symmetric.values)) ≈ 14.0 rtol = RTOL
+        @test !haskey(measured.values, (86, first(grid)))
     end
 end
 
@@ -258,10 +262,14 @@ end
     )
     symmetric = symmetrized_yield(measured, 236)
     @test symmetric.values[(96, 170.0)] == symmetric.values[(140, 170.0)] == 2.0
-    # A cell whose complement is unmeasured is kept, and the sum is unchanged.
-    @test symmetric.values[(96, 180.0)] == 2.0
-    @test symmetric.values[(150, 160.0)] == 5.0
-    @test sum(values(symmetric.values)) == sum(values(measured.values))
+    # A cell whose complement is unmeasured stands for it too, and the sum grows by its yield.
+    @test symmetric.values[(96, 180.0)] == symmetric.values[(140, 180.0)] == 2.0
+    @test symmetric.values[(150, 160.0)] == symmetric.values[(86, 160.0)] == 5.0
+    @test symmetric.masses == [86, 96, 140, 150]
+    @test sum(values(symmetric.values)) == sum(values(measured.values)) + 2.0 + 5.0
+    # Fully paired, the sum is unchanged.
+    @test sum(values(symmetrized_yield(symmetric, 236).values)) ==
+          sum(values(symmetric.values))
 end
 
 @testset "one-dimensional mass yield" begin

@@ -229,7 +229,8 @@ With `symmetrize = true` the exact pre-neutron identities `Y(A) = Y(A₀ − A)`
 split are counted in one event, so their masses have one yield and one kinetic energy.
 - Where both complements are tabulated, each takes their mean. Measured values that differ, such
   as a backing loss on one side of a double-energy measurement, then enter once and alike.
-- Where only one is tabulated, it serves the other as before.
+- Where only one is tabulated, it stands for the other. A yield measured on one wing only thus
+  gives both, and a mass whose complement lies beyond the measured range gains that partner.
 Pre-neutron data should be symmetrized. The default, `false`, keeps the tables as measured.
 The result is renormalized to `total`. Columns are taken by position in both files, not by
 header text: mass and yield in the first, mass and mean kinetic energy in the second.
@@ -344,13 +345,15 @@ function _mean_placement(grid::Vector{Float64}, mean::Float64)
     return [(upper - 1, 1 - share), (upper, share)]
 end
 
-# The mean of the values at A and at its complement where both are tabulated; a value whose
-# complement is absent is kept as it is.
+# The mean of the values at A and at its complement where both are tabulated; where only one
+# is, it stands for both, since the two masses belong to one split.
 function _complement_averaged(values::AbstractDict{Int, Float64}, compound_mass::Integer)
     averaged = Dict{Int, Float64}()
     for (A, value) in values
-        partner = get(values, Int(compound_mass) - A, nothing)
-        averaged[A] = partner === nothing ? value : (value + partner) / 2
+        complement = Int(compound_mass) - A
+        partner = get(values, complement, nothing)
+        averaged[A] =
+            averaged[complement] = partner === nothing ? value : (value + partner) / 2
     end
     return averaged
 end
@@ -362,16 +365,21 @@ end
 `compound_mass`. The two fragments of a split share one event, and so one yield at each total
 kinetic energy.
 - Where both cells `(A, TKE)` and `(A₀ − A, TKE)` are measured, each takes their mean.
-- A cell whose complement is not measured is kept as it is.
-The normalization is unchanged: the mean of two cells preserves their sum.
+- Where only one is, it stands for its complement too, which is added.
+Where every complement is measured the normalization is unchanged, since the mean of two cells
+preserves their sum. Otherwise the sum grows by the yield of the unpaired cells, now counted
+for both fragments of their split: a distribution measured on one wing only, normalized to
+100 %, becomes the 200 % of both.
 """
 function symmetrized_yield(yield::MassEnergyYield, compound_mass::Integer)
     values = Dict{Tuple{Int, Float64}, Float64}()
     for ((A, TKE), Y) in yield.values
-        partner = get(yield.values, (Int(compound_mass) - A, TKE), nothing)
-        values[(A, TKE)] = partner === nothing ? Y : (Y + partner) / 2
+        complement = (Int(compound_mass) - A, TKE)
+        partner = get(yield.values, complement, nothing)
+        values[(A, TKE)] = values[complement] = partner === nothing ? Y : (Y + partner) / 2
     end
-    return MassEnergyYield(values, yield.masses, yield.energies, yield.source)
+    masses = sort(unique(A for (A, _) in keys(values)))
+    return MassEnergyYield(values, masses, yield.energies, yield.source)
 end
 
 """
