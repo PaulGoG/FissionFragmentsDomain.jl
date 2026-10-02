@@ -299,6 +299,34 @@ end
     end
 end
 
+@testset "the pre-neutron identity imposed on a mass yield" begin
+    measured = MassYield(
+        [96, 100, 118, 136, 140, 150],
+        [1.0, 2.0, 7.0, 4.0, 3.0, 5.0],
+        [0.3, missing, 0.5, missing, 0.4, 0.2],
+        "fixture",
+        "fixture.dat",
+    )
+    symmetric = symmetrized_yield(measured, 236)
+    @test symmetric isa MassYield
+    @test symmetric.A == [86, 96, 100, 118, 136, 140, 150]
+    @test symmetric.Y == [5.0, 2.0, 3.0, 7.0, 3.0, 2.0, 5.0]
+    # Both complements quoted; neither quoted.
+    @test symmetric.σY[2] == symmetric.σY[6] == sqrt(0.3^2 + 0.4^2) / 2
+    @test ismissing(symmetric.σY[3]) && ismissing(symmetric.σY[5])
+    # The symmetric split is its own complement; an unpaired mass stands for its complement.
+    @test symmetric.σY[4] == 0.5
+    @test symmetric.σY[1] == symmetric.σY[7] == 0.2
+    @test (symmetric.label, symmetric.source) == ("fixture", "fixture.dat")
+    # Fully paired, a second pass leaves masses and yields as they are.
+    again = symmetrized_yield(symmetric, 236)
+    @test again.A == symmetric.A
+    @test again.Y == symmetric.Y
+    # One quoted uncertainty of a pair contributes alone.
+    partial = MassYield([96, 140], [1.0, 3.0], [missing, 0.4], "", "")
+    @test symmetrized_yield(partial, 236).σY == [0.2, 0.2]
+end
+
 @testset "the energy standards of the mean total kinetic energy" begin
     @test value(recommended_mean_total_kinetic_energy(CF252)) == 184.1
     thermal(Z, A) = neutron_induced_fission(Nuclide(Z, A), 2.53e-8, "nth")

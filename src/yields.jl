@@ -359,7 +359,7 @@ function _complement_averaged(values::AbstractDict{Int, Float64}, compound_mass:
 end
 
 """
-    symmetrized_yield(yield, compound_mass) -> MassEnergyYield
+    symmetrized_yield(yield::MassEnergyYield, compound_mass) -> MassEnergyYield
 
 `yield` with the exact pre-neutron identity `Y(A, TKE) = Y(A₀ − A, TKE)` imposed, `A₀` being
 `compound_mass`. The two fragments of a split share one event, and so one yield at each total
@@ -643,6 +643,45 @@ function read_mass_yield(
     order = sortperm(masses)
     name = isempty(label) ? first(splitext(basename(path))) : String(label)
     return MassYield(masses[order], measured[order], σY[order], name, String(path))
+end
+
+"""
+    symmetrized_yield(yields::MassYield, compound_mass) -> MassYield
+
+`yields` with the pre-neutron identity `Y(A) = Y(A₀ − A)` imposed, `A₀` being
+`compound_mass`: the two fragments of a split are counted in one event, so their masses
+have one yield.
+- Where both complements are measured, each takes their mean, with the uncertainty of the
+  mean of two independent values, `√(σ_A² + σ_{A₀−A}²)/2`. An unquoted uncertainty
+  contributes nothing to it; where neither is quoted the result quotes none (`missing`).
+- A mass whose complement is not measured stands for it: the complement is added with the
+  same yield and uncertainty, so a distribution measured on one wing gives both.
+- The symmetric split `A₀/2` is its own complement and is kept as measured.
+The result is ascending in `A` and keeps `label` and `source`. No normalisation is imposed:
+where one wing alone was measured the sum doubles, which an average dividing by its own
+weights does not see. This is the one-dimensional counterpart of the `MassEnergyYield`
+method, and carries the uncertainties, which that method does not have.
+"""
+function symmetrized_yield(yields::MassYield, compound_mass::Integer)
+    A₀ = Int(compound_mass)
+    index = Dict(A => i for (i, A) in enumerate(yields.A))
+    masses = sort!(union(yields.A, [A₀ - A for A in yields.A if A < A₀]))
+    Y = Vector{Float64}(undef, length(masses))
+    σY = Vector{Union{Missing, Float64}}(undef, length(masses))
+    for (k, A) in enumerate(masses)
+        i = get(index, A, nothing)
+        j = get(index, A₀ - A, nothing)
+        if i === nothing || j === nothing || i == j
+            measured = something(i, j)
+            Y[k] = yields.Y[measured]
+            σY[k] = yields.σY[measured]
+        else
+            Y[k] = (yields.Y[i] + yields.Y[j]) / 2
+            σ = (yields.σY[i], yields.σY[j])
+            σY[k] = all(ismissing, σ) ? missing : sqrt(sum(abs2, skipmissing(σ))) / 2
+        end
+    end
+    return MassYield(masses, Y, σY, yields.label, yields.source)
 end
 
 """
