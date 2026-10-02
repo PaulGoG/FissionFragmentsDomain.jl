@@ -225,6 +225,77 @@ end
     end
 end
 
+@testset "the archive accession of a dataset curve is recorded" begin
+    @test ManifestCurve("x", "dataset", "a.csv", "b.csv").accession == ""
+    for accession in ("14369003", "V0101002", "309690021")
+        @test ManifestCurve("x", "dataset", "a.csv", "b.csv"; accession).accession ==
+              accession
+    end
+    for accession in ("1436900", "1436900345", "14369 003", "v0101002")
+        @test_throws ArgumentError ManifestCurve(
+            "x",
+            "dataset",
+            "a.csv",
+            "b.csv";
+            accession,
+        )
+    end
+    @test_throws ArgumentError ManifestCurve(
+        SYSTEMATIC_TREND_LABEL,
+        "systematic_trend",
+        "a.csv",
+        "b.csv";
+        accession = "14369003",
+    )
+
+    mktempdir() do directory
+        # Absent, the key reads as empty and is not written back.
+        base = read_temperature_ratio_manifest(_manifest(directory))
+        @test all(isempty(curve.accession) for curve in base.curves)
+        plain = write_temperature_ratio_manifest(joinpath(directory, "plain.toml"), base)
+        @test !occursin("accession", read(plain, String))
+    end
+
+    mktempdir() do directory
+        path = _manifest(
+            directory,
+            "kind = \"dataset\"\n" => "kind = \"dataset\"\naccession = \"23444004\"\n",
+        )
+        manifest = read_temperature_ratio_manifest(path)
+        @test manifest_curve(manifest, "Goeoek_2018").accession == "23444004"
+        @test manifest_curve(manifest, SYSTEMATIC_TREND_LABEL).accession == ""
+        written = write_temperature_ratio_manifest(
+            joinpath(directory, "manifest_written.toml"),
+            manifest,
+        )
+        back = read_temperature_ratio_manifest(written)
+        @test [curve.accession for curve in back.curves] == ["23444004", ""]
+        @test curve_labels(back) == curve_labels(manifest)
+    end
+
+    mktempdir() do directory
+        @test _manifest_rejects(
+            directory,
+            "accession",
+            "kind = \"dataset\"\n" => "kind = \"dataset\"\naccession = \"2344\"\n",
+        )
+    end
+    mktempdir() do directory
+        @test _manifest_rejects(
+            directory,
+            "accession",
+            "kind = \"systematic_trend\"\n" => "kind = \"systematic_trend\"\naccession = \"23444004\"\n",
+        )
+    end
+    mktempdir() do directory
+        @test _manifest_rejects(
+            directory,
+            "accession",
+            "kind = \"dataset\"\n" => "kind = \"dataset\"\naccession = 23444004\n",
+        )
+    end
+end
+
 @testset "the domain record round-trips" begin
     mktempdir() do directory
         system = neutron_induced_fission(Nuclide(92, 235), 2.53e-8, "nth")

@@ -1,30 +1,56 @@
+# An EXFOR dataset identifier: entry (five characters), subentry (three digits) and, where the
+# subentry holds several datasets, one pointer character.
+const _ACCESSION_PATTERN = r"^[0-9A-Z]{8,9}$"
+
 """
     ManifestCurve
 
-One `[[segmented_curve]]` of a temperature-ratio manifest: its label, its kind, and the two files
-the producing run tabulated it in. It describes a curve; the function itself is a
-[`SegmentedCurve`](@ref) read from one of these files. `kind` is `"dataset"` for a curve
-extracted from a single measurement and `"systematic_trend"` for the combined trend fitted
-across them. Only `temperature_ratio_file` is read, through [`temperature_ratio_path`](@ref);
+One `[[segmented_curve]]` of a temperature-ratio manifest: its label, its kind, the two
+files the producing run tabulated it in, and the archive accession of the dataset where one
+is recorded. It describes a curve; the function itself is a [`SegmentedCurve`](@ref) read
+from one of these files. `kind` is `"dataset"` for a curve extracted from a single
+measurement and `"systematic_trend"` for the combined trend fitted across them. Only
+`temperature_ratio_file` is read, through [`temperature_ratio_path`](@ref);
 `multiplicity_ratio_pivots_file` holds `r_ν`, not `R_T`, and is recorded only.
+`accession` is the EXFOR dataset identifier of the measurement a `"dataset"` curve was
+extracted from, such as `"14369003"`, or nine characters where a subentry holds several
+datasets. It is empty where the manifest records none, and always for the systematic trend.
+It is recorded for traceability and never selects a curve; the label does.
 """
 struct ManifestCurve
     label::String
     kind::String
     temperature_ratio_file::String
     multiplicity_ratio_pivots_file::String
+    accession::String
 
     function ManifestCurve(
         label::AbstractString,
         kind::AbstractString,
         temperature_ratio_file::AbstractString,
-        multiplicity_ratio_pivots_file::AbstractString,
+        multiplicity_ratio_pivots_file::AbstractString;
+        accession::AbstractString = "",
     )
+        if !isempty(accession)
+            kind == SYSTEMATIC_TREND_LABEL && throw(
+                ArgumentError(
+                    "a systematic trend pools datasets and carries no accession, got \
+                     $(repr(accession))",
+                ),
+            )
+            occursin(_ACCESSION_PATTERN, accession) || throw(
+                ArgumentError(
+                    "an accession is an EXFOR dataset identifier, 8 or 9 characters from \
+                     0-9 and A-Z, got $(repr(accession))",
+                ),
+            )
+        end
         return new(
             String(label),
             String(kind),
             String(temperature_ratio_file),
             String(multiplicity_ratio_pivots_file),
+            String(accession),
         )
     end
 end
@@ -400,6 +426,9 @@ Read and validate the run record of a temperature-ratio extraction. Each check t
   `multiplicity_ratio_pivots_file`, with `kind` drawn from [`MANIFEST_CURVE_KINDS`](@ref).
 - Labels must be distinct, since a label selects a curve.
 - The two files of a curve must be distinct paths, since they hold different quantities.
+- `accession` is optional on a `[[segmented_curve]]`; when present it must be an EXFOR
+  dataset identifier of 8 or 9 characters from `0-9` and `A-Z`, and a `"systematic_trend"`
+  curve must not carry one.
 - `[domain]` is optional; when present it must be a table carrying `level_density_model`, one
   of [`LEVEL_DENSITY_MODELS`](@ref), `ratio_averaging`, one of [`RATIO_AVERAGINGS`](@ref), an
   odd positive integer `charges_per_mass`, and non-empty `charge_model`, `mass_table` and
@@ -586,7 +615,16 @@ function read_temperature_ratio_manifest(path::AbstractString)
  and cannot be the same table",
             ),
         )
-        push!(curves, ManifestCurve(label, kind, temperature_ratio_file, pivots_file))
+        accession =
+            haskey(entry, "accession") ?
+            _manifest_value(entry, "accession", String, "$where_ accession", source) : ""
+        curve = try
+            ManifestCurve(label, kind, temperature_ratio_file, pivots_file; accession)
+        catch err
+            err isa ArgumentError || rethrow()
+            throw(ArgumentError("$source: $where_ accession: " * err.msg))
+        end
+        push!(curves, curve)
     end
 
     labels = [curve.label for curve in curves]
@@ -613,13 +651,26 @@ const _MANIFEST_TABLE_ORDER = ("system", "run", "domain", "segmented_curve")
 _manifest_key_order(key::AbstractString) =
     (something(findfirst(==(key), _MANIFEST_TABLE_ORDER), 0), key)
 
+# One [[segmented_curve]] table; the accession is written only where the curve records one.
+function _curve_record(curve::ManifestCurve)
+    record = Dict{String, Any}(
+        "label" => curve.label,
+        "kind" => curve.kind,
+        "temperature_ratio_file" => curve.temperature_ratio_file,
+        "multiplicity_ratio_pivots_file" => curve.multiplicity_ratio_pivots_file,
+    )
+    isempty(curve.accession) || (record["accession"] = curve.accession)
+    return record
+end
+
 """
     write_temperature_ratio_manifest(path, manifest::TemperatureRatioManifest) -> String
 
 Write `manifest` as the TOML run record that [`read_temperature_ratio_manifest`](@ref)
 reads: `[system]`, `[run]`, `[domain]` when present, then one `[[segmented_curve]]` per
-curve, file paths as the curves hold them. Refuses to overwrite an existing file, so a run
-record is never lost; returns `path`. What it writes reads back equal, `source` aside.
+curve, file paths as the curves hold them and a curve's `accession` where it records one.
+Refuses to overwrite an existing file, so a run record is never lost; returns `path`. What it
+writes reads back equal, `source` aside.
 """
 function write_temperature_ratio_manifest(
     path::AbstractString,
@@ -643,15 +694,7 @@ function write_temperature_ratio_manifest(
             "compound_Z" => system.compound_Z,
         ),
         "run" => run_table,
-        "segmented_curve" => [
-            Dict{String, Any}(
-                "label" => curve.label,
-                "kind" => curve.kind,
-                "temperature_ratio_file" => curve.temperature_ratio_file,
-                "multiplicity_ratio_pivots_file" =>
-                    curve.multiplicity_ratio_pivots_file,
-            ) for curve in manifest.curves
-        ],
+        "segmented_curve" => [_curve_record(curve) for curve in manifest.curves],
     )
     domain = manifest.domain
     if domain !== nothing
