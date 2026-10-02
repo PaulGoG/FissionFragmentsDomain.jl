@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.3] - 2026-10-02
+
+- `symmetrized_yield` has a method for a `MassYield`: the pre-neutron identity `Y(A) = Y(A₀ − A)`
+  imposed on a one-dimensional mass yield with its uncertainties. Two measured complements take
+  their mean, with the uncertainty of the mean of two independent values; an unpaired mass stands
+  for its complement.
+- `ManifestCurve` records an optional `accession`, the EXFOR dataset identifier of the measurement
+  a dataset curve was extracted from. `read_temperature_ratio_manifest` reads the key where a
+  `[[segmented_curve]]` carries it, and `write_temperature_ratio_manifest` writes it where a curve
+  records one; a manifest without it reads and writes as before. The systematic trend carries
+  none.
+
 ## [0.2.2] - 2026-10-01
 
 - With `symmetrize = true`, `factorized_yield` lets a mass yield whose complement is not
