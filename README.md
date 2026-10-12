@@ -90,7 +90,7 @@ temperature_ratio(ChargeResolved(), model, domain, 140, 0.45)          # R_T fro
 | Level density | back-shifted Fermi gas (von Egidy–Bucurescu); Gilbert–Cameron with its deformed branch, its Table III shell corrections shipped |
 | Temperature ratio | forward and inverse relation, charge-resolved (optionally excitation-weighted) or through an effective `R_a` in either averaging order; run record with its domain, read and written |
 | Yields | joint `Y(A, TKE)`, factorized reconstruction, `Y(A)` |
-| Run records | reader; the writer follows with the rebuilt producer |
+| Run records | reader and writer; the record carries the domain it was extracted on |
 
 <details>
 <summary>Full tree</summary>
