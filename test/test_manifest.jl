@@ -309,6 +309,35 @@ end
         @test record.charges_per_mass == 5
         @test record.mass_table == basename(String(AME2020_MASS_EXCESS_FILE))
         @test occursin("Wahl1988", record.charge_model)
+        # A Zₚ model ignores the option, so its domain records that nothing was imposed.
+        @test record.zero_polarization_at_symmetry === false
+        @test ManifestDomain(
+            model,
+            ChargeResolved(),
+            fragmentation_domain(
+                system,
+                charge,
+                118:160;
+                zero_polarization_at_symmetry = true,
+            ),
+            charge,
+            masses,
+        ).zero_polarization_at_symmetry === false
+        gaussian = mean_charge_distribution()
+        zeroed = ManifestDomain(
+            model,
+            ChargeResolved(),
+            fragmentation_domain(
+                system,
+                gaussian,
+                118:160;
+                zero_polarization_at_symmetry = true,
+            ),
+            gaussian,
+            masses,
+        )
+        @test zeroed.zero_polarization_at_symmetry === true
+        @test occursin("ΔZ = 0 at symmetry", sprint(show, zeroed))
 
         base = read_temperature_ratio_manifest(_manifest(directory))
         manifest = TemperatureRatioManifest(
@@ -340,6 +369,22 @@ end
         # A run record is never overwritten.
         @test_throws ArgumentError write_temperature_ratio_manifest(path, manifest)
 
+        # The symmetric-split choice is written and read back, true as well as false.
+        zeroed_path = write_temperature_ratio_manifest(
+            joinpath(directory, "manifest_zeroed.toml"),
+            TemperatureRatioManifest(
+                base.system,
+                base.ordinate,
+                base.abscissa,
+                base.columns,
+                base.curves,
+                base.source,
+                zeroed,
+            ),
+        )
+        @test occursin("zero_polarization_at_symmetry = true", read(zeroed_path, String))
+        @test read_temperature_ratio_manifest(zeroed_path).domain == zeroed
+
         for averaging in (ChargeResolved(), RatioOfMeans(), MeanOfRatios())
             @test ratio_averaging(ratio_averaging_label(averaging)) isa typeof(averaging)
         end
@@ -355,6 +400,26 @@ end
         @test read_temperature_ratio_manifest(_manifest(directory, "[run]" => block)).domain isa
               ManifestDomain
         @test read_temperature_ratio_manifest(_manifest(directory)).domain === nothing
+        # A table written before the key existed leaves the symmetric-split choice unknown.
+        @test read_temperature_ratio_manifest(_manifest(directory, "[run]" => block)).domain.zero_polarization_at_symmetry ===
+              nothing
+        @test read_temperature_ratio_manifest(
+            _manifest(
+                directory,
+                altered(
+                    "package_version = \"0.1.3\"",
+                    "package_version = \"0.1.3\"\nzero_polarization_at_symmetry = false",
+                ),
+            ),
+        ).domain.zero_polarization_at_symmetry === false
+        @test _manifest_rejects(
+            directory,
+            "zero_polarization_at_symmetry",
+            altered(
+                "package_version = \"0.1.3\"",
+                "package_version = \"0.1.3\"\nzero_polarization_at_symmetry = \"no\"",
+            ),
+        )
 
         @test _manifest_rejects(
             directory,

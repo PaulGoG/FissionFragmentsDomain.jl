@@ -12,6 +12,12 @@
   `KineticEnergyBound`. `kinetic_energy_limit`, `maximum_kinetic_energy_limit` and
   `kinetic_energy_moments` support it. `factorized_yield` reads its marginals through the same
   helper and is unchanged in output.
+- The `[domain]` record of a temperature-ratio manifest states whether the charge window at the
+  symmetric split was centred with `ΔZ = 0` imposed: `zero_polarization_at_symmetry`, recorded by
+  `FragmentationDomain` and `ManifestDomain`, written by `write_temperature_ratio_manifest` and
+  read as unknown (`nothing`) from a table that omits it. Before, two domains that differed only
+  there carried the same record. A domain built from a `ZpModel`, which ignores the option,
+  records `false`.
 - The `WahlSystematics` docstring states what the 2002 systematics do at the heavy corner of
   their fitted range: for ²⁵²Cf(sf) the near-symmetry region reaches into the heavy peak (`B4` at
   `A' = 148.1`), as published, and the reaction's own 1988 parameters describe its measured

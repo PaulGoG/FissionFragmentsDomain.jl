@@ -155,7 +155,10 @@ source), the version of this package (`package_version`), whether the Gilbert–
 formula took its deformed branch (`deformed_branch`, required with `"GC"` and `false` otherwise;
 see [`GilbertCameron`](@ref)), and whether a charge-resolved
 inversion weighted each fragmentation by its mean total excitation (`excitation_weighted`, see
-[`ChargeResolved`](@ref); `false` when the table omits it). A consumer that partitions the
+[`ChargeResolved`](@ref); `false` when the table omits it), and whether the charge window at the
+symmetric split was centred with `ΔZ = 0` imposed (`zero_polarization_at_symmetry`, see
+[`fragmentation_domain`](@ref); `nothing` when the table omits it, as tables written before
+version 0.2.4 do, so the choice is unknown rather than `false`). A consumer that partitions the
 excitation energy on a different domain does not invert the same relation.
 """
 struct ManifestDomain
@@ -167,6 +170,7 @@ struct ManifestDomain
     package_version::String
     excitation_weighted::Bool
     deformed_branch::Bool
+    zero_polarization_at_symmetry::Union{Bool, Nothing}
 
     function ManifestDomain(
         level_density_model::AbstractString,
@@ -177,6 +181,7 @@ struct ManifestDomain
         package_version::AbstractString,
         excitation_weighted::Bool = false,
         deformed_branch::Bool = false,
+        zero_polarization_at_symmetry::Union{Bool, Nothing} = nothing,
     )
         level_density_model in LEVEL_DENSITY_MODELS ||
             throw(ArgumentError("[domain] level_density_model must be one of \
@@ -223,6 +228,7 @@ struct ManifestDomain
             String(package_version),
             excitation_weighted,
             deformed_branch,
+            zero_polarization_at_symmetry,
         )
     end
 end
@@ -250,6 +256,7 @@ function ManifestDomain(
         string(PACKAGE_VERSION),
         averaging isa ChargeResolved && averaging.excitation !== nothing,
         model isa GilbertCameron && model.deformed_branch,
+        domain.zero_polarization_at_symmetry,
     )
 end
 
@@ -276,6 +283,7 @@ function Base.show(io::IO, domain::ManifestDomain)
         domain.mass_table,
         domain.deformed_branch ? ", deformed branch" : "",
         domain.excitation_weighted ? ", excitation-weighted" : "",
+        domain.zero_polarization_at_symmetry === true ? ", ΔZ = 0 at symmetry" : "",
         ")",
     )
     return nothing
@@ -434,7 +442,9 @@ Read and validate the run record of a temperature-ratio extraction. Each check t
   odd positive integer `charges_per_mass`, and non-empty `charge_model`, `mass_table` and
   `package_version`; `excitation_weighted`, a Boolean, is optional and admitted only with
   `ratio_averaging = "charge_resolved"`; `deformed_branch`, a Boolean, is required with
-  `level_density_model = "GC"` and must be `false` or absent otherwise. Without the table the manifest's `domain` is `nothing`.
+  `level_density_model = "GC"` and must be `false` or absent otherwise;
+  `zero_polarization_at_symmetry`, a Boolean, is optional and read as unknown (`nothing`) when
+  absent. Without the table the manifest's `domain` is `nothing`.
 
 `[run] columns` is recorded but not used to locate a column. File paths inside the manifest are
 resolved relative to the manifest's directory; absolute paths are taken as written.
@@ -561,6 +571,14 @@ function read_temperature_ratio_manifest(path::AbstractString)
                 source,
             ) : false,
             _manifest_deformed_branch(domain_table, source),
+            haskey(domain_table, "zero_polarization_at_symmetry") ?
+            _manifest_value(
+                domain_table,
+                "zero_polarization_at_symmetry",
+                Bool,
+                "[domain] zero_polarization_at_symmetry",
+                source,
+            ) : nothing,
         )
         domain = try
             ManifestDomain(fields...)
@@ -707,6 +725,10 @@ function write_temperature_ratio_manifest(
             "package_version" => domain.package_version,
             "excitation_weighted" => domain.excitation_weighted,
             "deformed_branch" => domain.deformed_branch,
+        )
+        domain.zero_polarization_at_symmetry === nothing || (
+            document["domain"]["zero_polarization_at_symmetry"] =
+                domain.zero_polarization_at_symmetry
         )
     end
     open(io -> TOML.print(io, document; sorted = true, by = _manifest_key_order), path, "w")

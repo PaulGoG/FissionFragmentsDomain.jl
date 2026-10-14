@@ -140,6 +140,9 @@ end
     )
     @test charges(zeroed, 126) == 47:51
     @test symmetric_charge_set_is_invariant(zeroed) == true
+    # The domain records the choice, so a run record can state it.
+    @test zeroed.zero_polarization_at_symmetry
+    @test !given.zero_polarization_at_symmetry
 
     # Only the symmetric mass is affected.
     @test [e for e in zeroed.entries if e.heavy.A > 126] == [e for e in given.entries if e.heavy.A > 126]

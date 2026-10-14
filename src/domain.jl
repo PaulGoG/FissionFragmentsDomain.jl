@@ -34,20 +34,30 @@ is_symmetric(fragmentation::Fragmentation) = fragmentation.heavy.A == fragmentat
 The deterministic set of fragmentations the model sweeps: every heavy mass in
 `heavy_masses`, each with `charges_per_mass` charge numbers around `Zₚ(A)`, paired with its
 complement. Entries are sorted as whole rows by heavy mass and then by heavy charge.
+`zero_polarization_at_symmetry` records whether the charge window at `A_H = A₀/2` was centred
+with `ΔZ = 0` imposed; see [`fragmentation_domain`](@ref).
 """
 struct FragmentationDomain
     system::FissioningSystem
     entries::Vector{Fragmentation}
     heavy_masses::UnitRange{Int}
     charges_per_mass::Int
+    zero_polarization_at_symmetry::Bool
 
     function FragmentationDomain(
         system::FissioningSystem,
         entries::Vector{Fragmentation},
         heavy_masses::UnitRange{Int},
         charges_per_mass::Integer,
+        zero_polarization_at_symmetry::Bool = false,
     )
-        return new(system, entries, heavy_masses, Int(charges_per_mass))
+        return new(
+            system,
+            entries,
+            heavy_masses,
+            Int(charges_per_mass),
+            zero_polarization_at_symmetry,
+        )
     end
 end
 
@@ -164,6 +174,8 @@ function fragmentation_domain(
         entries,
         UnitRange{Int}(lower, upper),
         Int(charges_per_mass),
+        # A Zₚ model ignores the option, so a domain built from one imposed nothing.
+        zero_polarization_at_symmetry && !(distribution isa ZpModel),
     )
 end
 
