@@ -120,6 +120,7 @@ FissionFragmentsDomain.jl/
 │   ├── energetics.jl         E*_CN, TXE, kinematics, energetics sweep
 │   ├── temperature_ratio.jl  R_a, R_T ↔ E*_H/TXE
 │   ├── yields.jl             Y(A,TKE), factorized yield, Y(A)
+│   ├── bounded_yield.jl      the yield bounded at TKE < Q + E*_CN, measured moments kept
 │   ├── averaging.jl          yield-weighted contractions
 │   ├── curves.jl             curves of A_H
 │   └── manifest.jl           temperature-ratio run record, read and written

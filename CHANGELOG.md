@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+- `bounded_fragment_yield`: the fragment yield bounded at the physical limit of each split,
+  `P(TKE|A,Z) = 0` for `TKE ≥ Q + E*_CN`, normalised per `(A, Z)` so that `Y(A)` and `p(Z|A)`
+  keep their measured values, with the measured `⟨TKE⟩(A)` (`moments = :mean`) or `⟨TKE⟩(A)` and
+  `σ_TKE(A)` (`:mean_and_width`) restored by an exponential tilt of each mass row, which for a
+  factorized Gaussian is a re-centring (and re-scaling) of the Gaussian. Methods on a
+  `MassEnergyYield` and on the marginal files of `factorized_yield`, the latter refusing a grid
+  that stops short of the limit of a fragment carrying yield; per-mass records in
+  `KineticEnergyBound`. `kinetic_energy_limit`, `maximum_kinetic_energy_limit` and
+  `kinetic_energy_moments` support it. `factorized_yield` reads its marginals through the same
+  helper and is unchanged in output.
 - The `WahlSystematics` docstring states what the 2002 systematics do at the heavy corner of
   their fitted range: for ²⁵²Cf(sf) the near-symmetry region reaches into the heavy peak (`B4` at
   `A' = 148.1`), as published, and the reaction's own 1988 parameters describe its measured

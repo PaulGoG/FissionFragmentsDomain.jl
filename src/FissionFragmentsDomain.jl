@@ -148,7 +148,13 @@ export KineticEnergyDispersion,
     mean_kinetic_energy_by_mass,
     MassYield,
     mass_yield,
-    read_mass_yield
+    read_mass_yield,
+    kinetic_energy_moments
+export KineticEnergyBound,
+    KINETIC_ENERGY_MOMENTS,
+    kinetic_energy_limit,
+    maximum_kinetic_energy_limit,
+    bounded_fragment_yield
 export FragmentQuantity, average, total_average, weights_from
 export SegmentedCurve,
     TEMPERATURE_RATIO_CURVE_SPEC, EXCITATION_RATIO_CURVE_SPEC, read_segmented_curve
@@ -227,6 +233,7 @@ include("temperature_ratio.jl")
 include("wahl.jl")
 include("wahl1988.jl")
 include("yields.jl")
+include("bounded_yield.jl")
 include("averaging.jl")
 include("curves.jl")
 include("manifest.jl")

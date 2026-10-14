@@ -244,12 +244,80 @@ function factorized_yield(
     total::Real = DEFAULT_YIELD_TOTAL,
     symmetrize::Bool = false,
 )
+    grid = sort(unique(Float64.(collect(energies))))
+    isempty(grid) && throw(ArgumentError("the kinetic energy grid is empty"))
+    marginals = _factorized_marginals(
+        mass_yield_path,
+        kinetic_energy_path,
+        compound_mass;
+        dispersion = dispersion,
+        symmetrize = symmetrize,
+    )
+    measured_yield = marginals.yield
+    mean_by_mass = marginals.mean
+
+    values = Dict{Tuple{Int, Float64}, Float64}()
+    kept = Int[]
+    running = 0.0
+    for A in sort(collect(keys(measured_yield)))
+        Y = measured_yield[A]
+        mean = get(mean_by_mass, A, nothing)
+        mean === nothing && continue
+        σ_TKE = _factorized_width(marginals, A)
+        if σ_TKE === nothing
+            placement = _mean_placement(grid, mean)
+            placement === nothing && continue
+            push!(kept, A)
+            for (index, share) in placement
+                cell = Y * share
+                values[(A, grid[index])] = cell
+                running += cell
+            end
+            continue
+        end
+        shape = [exp(-(TKE - mean)^2 / (2 * σ_TKE^2)) for TKE in grid]
+        norm = sum(shape)
+        norm > 0 || continue
+        push!(kept, A)
+        for (index, TKE) in pairs(grid)
+            cell = Y * shape[index] / norm
+            values[(A, TKE)] = cell
+            running += cell
+        end
+    end
+    isempty(values) &&
+        throw(ArgumentError("no mass carries both a yield and a mean kinetic energy; \
+                       $(marginals.mass_path) and $(marginals.energy_path) do not overlap"))
+
+    # Renormalized to the 200 % of a measured two-fragment distribution, so factorized and
+    # measured yields weight a run alike.
+    scale = total / running
+    for key in keys(values)
+        values[key] *= scale
+    end
+    return MassEnergyYield(
+        values,
+        sort(kept),
+        grid,
+        string(basename(mass_yield_path), " × ", basename(kinetic_energy_path)),
+    )
+end
+
+# The marginals a factorized yield is built from, as `factorized_yield` and
+# `kinetic_energy_moments` both read them: `yield` and `mean` by mass after the pre-neutron
+# identities where asked for, the mean of a complement inherited where only its partner is
+# tabulated, and the width table and fallback that `_factorized_width` resolves per mass.
+function _factorized_marginals(
+    mass_yield_path::AbstractString,
+    kinetic_energy_path::AbstractString,
+    compound_mass::Integer;
+    dispersion::Union{Nothing, Real, KineticEnergyDispersion} = nothing,
+    symmetrize::Bool = false,
+)
     widths =
         dispersion === nothing ? nothing :
         dispersion isa KineticEnergyDispersion ? dispersion :
         uniform_kinetic_energy_dispersion(dispersion)
-    grid = sort(unique(Float64.(collect(energies))))
-    isempty(grid) && throw(ArgumentError("the kinetic energy grid is empty"))
 
     mass_table = read_delimited_table(mass_yield_path, MASS_YIELD_SPEC)
     masses = integer_column(mass_table, :A)
@@ -285,54 +353,61 @@ function factorized_yield(
     tabulated = widths === nothing ? Dict{Int, Float64}() : widths.σ_TKE
     width_by_mass = symmetrize ? _complement_averaged(tabulated, compound_mass) : tabulated
     fallback = widths === nothing ? nothing : widths.default
-
-    values = Dict{Tuple{Int, Float64}, Float64}()
-    kept = Int[]
-    running = 0.0
-    for A in sort(collect(keys(measured_yield)))
-        Y = measured_yield[A]
-        mean = get(mean_by_mass, A, nothing)
-        mean === nothing && continue
-        σ_TKE = get(width_by_mass, A) do
-            symmetrize ? get(width_by_mass, Int(compound_mass) - A, fallback) : fallback
-        end
-        if σ_TKE === nothing
-            placement = _mean_placement(grid, mean)
-            placement === nothing && continue
-            push!(kept, A)
-            for (index, share) in placement
-                cell = Y * share
-                values[(A, grid[index])] = cell
-                running += cell
-            end
-            continue
-        end
-        shape = [exp(-(TKE - mean)^2 / (2 * σ_TKE^2)) for TKE in grid]
-        norm = sum(shape)
-        norm > 0 || continue
-        push!(kept, A)
-        for (index, TKE) in pairs(grid)
-            cell = Y * shape[index] / norm
-            values[(A, TKE)] = cell
-            running += cell
-        end
-    end
-    isempty(values) &&
-        throw(ArgumentError("no mass carries both a yield and a mean kinetic energy; \
-                       $(mass_table.path) and $(energy_table.path) do not overlap"))
-
-    # Renormalized to the 200 % of a measured two-fragment distribution, so factorized and
-    # measured yields weight a run alike.
-    scale = total / running
-    for key in keys(values)
-        values[key] *= scale
-    end
-    return MassEnergyYield(
-        values,
-        sort(kept),
-        grid,
-        string(basename(mass_yield_path), " × ", basename(kinetic_energy_path)),
+    return (
+        yield = measured_yield,
+        mean = mean_by_mass,
+        width = width_by_mass,
+        fallback = fallback,
+        symmetrize = symmetrize,
+        compound_mass = Int(compound_mass),
+        mass_path = mass_table.path,
+        energy_path = energy_table.path,
     )
+end
+
+# The width of mass `A` in a factorized reconstruction: its own, else its complement's where the
+# identities are imposed, else the fallback; `nothing` where there is none.
+function _factorized_width(marginals, A::Integer)
+    return get(marginals.width, A) do
+        marginals.symmetrize ?
+        get(marginals.width, marginals.compound_mass - A, marginals.fallback) :
+        marginals.fallback
+    end
+end
+
+"""
+    kinetic_energy_moments(mass_yield_path, kinetic_energy_path, compound_mass;
+                           dispersion = nothing, symmetrize = false)
+        -> Dict{Int,Tuple{Float64,Union{Float64,Nothing}}}
+
+The measured `(⟨TKE⟩(A), σ_TKE(A))` of every mass a [`factorized_yield`](@ref) built from the
+same files and keywords places, read exactly as that reconstruction reads them: the pre-neutron
+identities imposed where `symmetrize` asks for them, a complement's mean inherited where only its
+partner is tabulated, and a width of `nothing` where neither `dispersion` nor its fallback reaches
+the mass. These are the moments [`bounded_fragment_yield`](@ref) restores after bounding the
+reconstruction at the physical limit.
+"""
+function kinetic_energy_moments(
+    mass_yield_path::AbstractString,
+    kinetic_energy_path::AbstractString,
+    compound_mass::Integer;
+    dispersion::Union{Nothing, Real, KineticEnergyDispersion} = nothing,
+    symmetrize::Bool = false,
+)
+    marginals = _factorized_marginals(
+        mass_yield_path,
+        kinetic_energy_path,
+        compound_mass;
+        dispersion = dispersion,
+        symmetrize = symmetrize,
+    )
+    moments = Dict{Int, Tuple{Float64, Union{Float64, Nothing}}}()
+    for A in keys(marginals.yield)
+        mean = get(marginals.mean, A, nothing)
+        mean === nothing && continue
+        moments[A] = (mean, _factorized_width(marginals, A))
+    end
+    return moments
 end
 
 # The yield of a mass placed at its mean kinetic energy on `grid`: shared between the two grid
