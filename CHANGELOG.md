@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-14
+
 - `bounded_fragment_yield`: the fragment yield bounded at the physical limit of each split,
   `P(TKE|A,Z) = 0` for `TKE ≥ Q + E*_CN`, normalised per `(A, Z)` so that `Y(A)` and `p(Z|A)`
   keep their measured values, with the measured `⟨TKE⟩(A)` (`moments = :mean`) or `⟨TKE⟩(A)` and
