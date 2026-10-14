@@ -11,6 +11,13 @@
     @test_throws ArgumentError Nuclide(-1, 10)
     # A nuclide cannot hold fewer nucleons than protons.
     @test_throws ArgumentError Nuclide(50, 40)
+
+    # The hash is a function of (Z, A) alone, so a Dict keyed by nuclides iterates in the same
+    # order in every build of the package.
+    @test hash(Nuclide(50, 132), UInt(7)) ==
+          hash(132, hash(50, UInt(7) ⊻ FissionFragmentsDomain._NUCLIDE_HASH_SEED))
+    @test hash(Nuclide(50, 132)) != hash(Nuclide(51, 132))
+    @test length(Set([Nuclide(50, 132), Nuclide(50, 132), Nuclide(52, 132)])) == 2
 end
 
 @testset "fissioning systems" begin

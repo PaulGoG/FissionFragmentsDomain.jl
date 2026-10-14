@@ -18,6 +18,9 @@
   read as unknown (`nothing`) from a table that omits it. Before, two domains that differed only
   there carried the same record. A domain built from a `ZpModel`, which ignores the option,
   records `false`.
+- `Nuclide` hashes by its charge and mass numbers. The fallback hashed the object identity, which
+  changes from one build of the package to the next, and with it the iteration order of a `Dict`
+  keyed by nuclides and the last bits of sums taken over one.
 - The `WahlSystematics` docstring states what the 2002 systematics do at the heavy corner of
   their fitted range: for ²⁵²Cf(sf) the near-symmetry region reaches into the heavy peak (`B4` at
   `A' = 148.1`), as published, and the reaction's own 1988 parameters describe its measured

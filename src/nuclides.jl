@@ -28,6 +28,14 @@ neutron_number(nuclide::Nuclide) = nuclide.A - nuclide.Z
 Base.show(io::IO, nuclide::Nuclide) =
     print(io, "Nuclide(Z=", nuclide.Z, ", A=", nuclide.A, ")")
 
+# A hash of the field values alone. The fallback hashes the object identity, which depends on
+# the build, so the iteration order of a `Dict` keyed by nuclides, and with it the order of
+# floating-point sums over one, would change from one build of the package to the next.
+const _NUCLIDE_HASH_SEED = 0x6e75636c69646573 % UInt
+
+Base.hash(nuclide::Nuclide, h::UInt) =
+    hash(nuclide.A, hash(nuclide.Z, h ⊻ _NUCLIDE_HASH_SEED))
+
 const NEUTRON = Nuclide(0, 1)
 
 """
