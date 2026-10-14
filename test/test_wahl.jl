@@ -170,9 +170,9 @@ end
         @test abs(systematics.B4 - fit.A_J) < 1.5
     end
 
-    # 252-Cf is where the trend is poorest. SL50 is extrapolated 16 mass units past the data it
-    # was fitted on, B4 lands near 148 against the fit's junction near 130, and σ_Z(140) exceeds
-    # the fitted width by 0.13.
+    # 252-Cf is where the trend is poorest. SL50 is extrapolated two mass units past 249-Cf,
+    # the heaviest reaction it was fitted on, B4 lands near 148 against the fit's junction near
+    # 130, and σ_Z(140) exceeds the fitted width by 0.13.
     cf = WahlSystematics(table, CF252)
     fit = wahl_1988(CF252)
     @test cf.B4 - fit.A_J > 15

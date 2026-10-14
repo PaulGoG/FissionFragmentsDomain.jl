@@ -47,10 +47,23 @@ the mass before prompt-neutron emission, and so the index of primary fragments. 
 are quoted for the heavy side, the convention of eqs. (9c) and (9d).
 
 `Ba` and `Bb` bound the interval where `Zₚ` crosses the `Z = 50` shell closure, with
-`Ba = A_F − A'_max` and `Bb = A'_max` as in Figs. 18b, 19b and 20b; the printed eq. (10) swaps
-the two, and only the assignment of the figures is continuous with the adjacent peak regions.
-Where a reaction has its own parameters, [`Wahl1988`](@ref) takes precedence;
+`Ba = A_F − A'_max` and `Bb = A'_max` as in Figs. 18b, 19b and 20b and as eqs. (4.2-4g,h) of
+the preceding version print them (Wahl, IAEA-TECDOC-1168, 2000, p. 67); the printed eq. (10)
+swaps the two, and only the assignment of the figures is continuous with the adjacent peak
+regions. Where a reaction has its own parameters, [`Wahl1988`](@ref) takes precedence;
 [`charge_model`](@ref) selects between the two.
+
+At the heavy corner of the fitted range the near-symmetry region reaches into the heavy peak.
+Its parameters rest on four reactions; `σ_Z(50)` rises with `Z_F` to 0.716 at `Z_F = 98`, fixed
+by the light-product data of ²⁴⁹Cf(n_th,f) (p. 24), and `SL50` falls linearly with `A_F`. For
+²⁴⁹Cf(n_th,f) eq. (10d) places `B4` at `A' = 141.7`, as Fig. 19 (p. 32) draws it. For
+²⁵²Cf(sf) the quadratic term of `ΔZ(140)`, −0.719 and consistent with that reaction's own
+point in Fig. 23 (p. 35), and `SL50 = 0.069`, extrapolated two mass units past ²⁴⁹Cf, move
+`B4` to 148.1: the `Bb`–`B4` leg, at `σ_Z = σ_Z(50)`, then carries 78 % of the pre-neutron
+heavy yield of Göök *et al.* (2014), doi:10.1103/PhysRevC.90.064611. That is the systematics
+as published, reproduced here without limits. Against the measured moments of ²⁵²Cf(sf) in
+Table IV of the 1988 evaluation its lattice width is 0.13 too large on average, against 0.03
+for the reaction's own fit.
 """
 struct WahlSystematics <: ZpModel
     Z_F::Int

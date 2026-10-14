@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+- The `WahlSystematics` docstring states what the 2002 systematics do at the heavy corner of
+  their fitted range: for ²⁵²Cf(sf) the near-symmetry region reaches into the heavy peak (`B4` at
+  `A' = 148.1`), as published, and the reaction's own 1988 parameters describe its measured
+  charge widths better. It also cites the 2000 version for the assignment of `Ba` and `Bb`. A test
+  comment that put the extrapolation of `SL50` at sixteen mass units now puts it at two.
+
 ## [0.2.3] - 2026-10-02
 
 - `symmetrized_yield` has a method for a `MassYield`: the pre-neutron identity `Y(A) = Y(A₀ − A)`
