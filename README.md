@@ -11,27 +11,30 @@ FissionFragmentsDomain.jl/
 ├── src/            the library: systems, masses, charge, domain, level density, energetics,
 │                   temperature ratio, yields, averages, curves and run records
 ├── data/           the shipped AME2020 mass table and the formats every reader accepts
-├── test/           unit tests, reference values from the archived ²⁵²Cf run, static QA
+├── test/           unit tests and static QA; references: Q and the level density parameter a
+│                   over the ²⁵²Cf(sf) domain (AME2020, BSFG), Wahl (1988) Tables I–IV
 ├── docs/           Documenter site
 ├── activate.jl     activates and instantiates the package environment
 └── check.jl        formatter, then the test suite
 ```
 
-The fragments of binary fission as models of prompt emission and of the excitation-energy
-partition see them. A fissioning system splits into complementary pairs
-`(A_L, Z_L) + (A_H, Z_H)` at a total kinetic energy `TKE`; this package holds what such models
-share, so that a calculation extracting the temperature ratio `R_T(A_H)` from measured `ν(A)` and
-one applying it to the emission of prompt neutrons work on one domain rather than two copies that
-drift apart:
+FissionFragmentsDomain.jl describes the fragments of binary fission as models of prompt emission
+and of the excitation-energy partition need them. A fissioning system splits into complementary
+pairs `(A_L, Z_L) + (A_H, Z_H)` at a total kinetic energy `TKE`; this package holds what such
+models share, so that a calculation extracting the temperature ratio `R_T(A_H)` from the measured
+prompt neutron multiplicity `ν(A)` and one applying it to the emission of prompt neutrons work on
+one domain rather than two copies that drift apart:
 
 - nuclides, fissioning systems and the system token `Cf252_sf` that names them everywhere;
 - the 2020 atomic mass evaluation, shipped, with `Q`-values and separation energies;
 - the isobaric charge distribution — evaluated tables, or the Wahl `Zₚ` model with per-reaction
   or systematic parameters — and the fragmentation domain built from it;
+- the energy balance `TXE = Q + E*_CN − TKE`, the total excitation energy of a split from its
+  Q value and the excitation energy `E*_CN` of the compound nucleus;
 - fragment level density parameters (back-shifted Fermi gas, Gilbert–Cameron), their ratio across
-  a pair averaged over the charge distribution, and the relation `E*_H/TXE = 1/(1 + R_a R_T²)` with
-  its inverse;
-- the energy balance `TXE = Q + E*_CN − TKE`;
+  a pair, `R_a = a_L/a_H`, averaged over the charge distribution, and the relation
+  `E*_H/TXE = 1/(1 + R_a R_T²)` between the heavy fragment's share of `TXE` and the temperature
+  ratio `R_T = T_L/T_H`, with its inverse;
 - the fragment yield `Y(A, Z, TKE) = p(Z, A) Y(A, TKE)`, its marginal `Y(A)`, and averages over
   it;
 - curves of the heavy-fragment mass, `R_T(A_H)` and `E*_H/TXE (A_H)`, and the run record through
@@ -60,7 +63,8 @@ From a clone, every environment activates and instantiates itself:
 
 ```bash
 julia -i activate.jl               # REPL in the package environment
-julia check.jl                     # format, then run the tests
+julia check.jl --check             # fail on formatting differences, then run the tests
+julia check.jl                     # format in place, then run the tests
 julia docs/make.jl                 # build the documentation into docs/build
 ```
 
@@ -73,11 +77,11 @@ using FissionFragmentsDomain
 
 system = spontaneous_fission(Nuclide(98, 252))
 masses = read_mass_excess_table(AME2020_MASS_EXCESS_FILE)
-charge = charge_model(masses, system)                           # Wahl (1988), CF252S
+charge = charge_model(masses, system)                           # Wahl (1988), its ²⁵²Cf(sf) set CF252S
 domain = fragmentation_domain(system, charge, 126:174)
 model = BackShiftedFermiGas(masses)
 heavy_excitation_fraction(ChargeResolved(), model, domain, 140, 1.2)   # E*_H/TXE at A_H = 140
-temperature_ratio(ChargeResolved(), model, domain, 140, 0.45)          # R_T from r_ν
+temperature_ratio(ChargeResolved(), model, domain, 140, 0.45)          # R_T from r_ν = ν_H/(ν_L + ν_H)
 ```
 
 ## Status
@@ -89,7 +93,7 @@ temperature_ratio(ChargeResolved(), model, domain, 140, 0.45)          # R_T fro
 | Fragmentation domain | complete; optional zero polarization at the symmetric split |
 | Level density | back-shifted Fermi gas (von Egidy–Bucurescu); Gilbert–Cameron with its deformed branch, its Table III shell corrections shipped |
 | Temperature ratio | forward and inverse relation, charge-resolved (optionally excitation-weighted) or through an effective `R_a` in either averaging order; run record with its domain, read and written |
-| Yields | joint `Y(A, TKE)`, factorized reconstruction, `Y(A)` |
+| Yields | joint `Y(A, TKE)`, factorized reconstruction, `Y(A)`; the yield bounded at `TKE < Q + E*_CN` with the measured moments restored (`bounded_fragment_yield`) |
 | Run records | reader and writer; the record carries the domain it was extracted on |
 
 <details>
@@ -145,6 +149,7 @@ The software is citable through `CITATION.cff`:
 @software{Gogita_FissionFragmentsDomain_jl,
   author  = {Gogîță, Paul-Adrian},
   title   = {FissionFragmentsDomain.jl},
+  year    = {2026},
   url     = {https://github.com/PaulGoG/FissionFragmentsDomain.jl},
   license = {MIT},
 }
