@@ -5,15 +5,14 @@ The fragments of binary fission, as the models of prompt emission and of the exc
 partition see them.
 
 A fissioning system splits into complementary pairs `(A_L, Z_L) + (A_H, Z_H)` at a total kinetic
-energy `TKE`. This package holds what those models share: nuclides and fissioning systems, the
-atomic mass evaluation and the `Q`-values it gives, the isobaric charge distribution (evaluated
-tables, or Wahl's `Zₚ` model with a reaction's own 1988 parameters or the 2002 systematics),
-the fragmentation domain built from it, fragment level
-density parameters and their ratio across a pair, the energy balance `TXE = Q + E*_CN − TKE`, the
-relation between the temperature ratio `R_T` and the excitation-energy partition, the fragment
-yield `Y(A, Z, TKE)` and averages over it, and the heavy-fragment curves `R_T(A_H)` and
-`E*_H/TXE (A_H)` together with the run record that carries a temperature-ratio extraction to its
-consumers.
+energy `TKE`. This package holds what those models share. Nuclides and fissioning systems; the
+atomic mass evaluation and the `Q`-values it gives; the isobaric charge distribution, from
+evaluated tables or from Wahl's `Zₚ` model with a reaction's own 1988 parameters or the 2002
+systematics; the fragmentation domain built from it; fragment level density parameters and their
+ratio across a pair; the energy balance `TXE = Q + E*_CN − TKE` and the relation between the
+temperature ratio `R_T` and the excitation-energy partition; the fragment yield `Y(A, Z, TKE)` and
+averages over it; and the heavy-fragment curves `R_T(A_H)` and `E*_H/TXE (A_H)` with the run
+record that carries a temperature-ratio extraction to its consumers.
 """
 module FissionFragmentsDomain
 
