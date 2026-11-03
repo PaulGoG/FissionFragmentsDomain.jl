@@ -8,10 +8,7 @@ The fragments of binary fission as the models of prompt emission and of the exci
 partition see them. The literature behind the conventions and the shipped data is listed with DOIs
 under [References](references.md).
 
-The reference follows the order a model consumes the domain in: the fissioning system and its
-nuclides, the tabular input contract and the mass evaluation, the charge distribution and the
-fragmentation domain it produces, the level density and the energy balance, the yields and the
-averages over them, and the curves a temperature-ratio extraction hands on.
+The pages follow the order in which a model consumes the domain.
 
 ```@index
 ```

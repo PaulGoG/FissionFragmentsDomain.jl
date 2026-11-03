@@ -10,7 +10,7 @@ set of fragmentations a model sweeps.
 ## Where a charge distribution comes from
 
 A [`ChargeModel`](@ref) gives `p(Z | A)` for fragments of every mass. Four sources can supply one,
-in descending order of how much they are worth, and [`charge_model`](@ref) resolves the last
+in decreasing order of fidelity, and [`charge_model`](@ref) resolves the last
 three in that order:
 
 | | Source | Reached by |
@@ -31,13 +31,12 @@ that have no fit of their own. Fig. 18 of that report puts the cost of the estim
 
 ## The 1988 model, reproduced
 
-[`Wahl1988`](@ref) is the 1988 evaluation's own calculation, not an approximation to it. Given
+[`Wahl1988`](@ref) reproduces the 1988 evaluation's calculation. Given
 only the tabulated `ν̄_A`, it returns every `Zₚ(A)` of the evaluation's Tables I–IV to within
 0.0007, and every calculated `Z̄(A)` and `RMS(A)` to within 0.0018, for all four reactions.
 [`fractional_independent_yields`](@ref) is the product-level form those tables tabulate.
 
-Two readings of the paper are needed for that, and both are settled by the tables themselves,
-not by assumption:
+The reproduction needs two readings of the paper, and the tables fix both:
 
 - **The near-symmetry geometry of Fig. 2.** The steep branch of `ΔZ` crosses `ΔZ = 0` on the
   `Zₚ = 50` line and is displaced by `ΔA'_Z` towards higher `A'` at the height of the peak line.
@@ -59,8 +58,7 @@ built with `neutron_pairing = true`.
 
 ## Energy
 
-Energy is where the layers stop. Everything here is fitted to spontaneous, thermal and resonance
-fission. Above about 8 MeV, the 2002 report carries separate branches for the onset of
+The layers are fitted to spontaneous, thermal and resonance fission. Above about 8 MeV, the 2002 report carries separate branches for the onset of
 multi-chance fission; this package does not implement them, and [`WAHL_VALIDITY`](@ref) excludes
 that range.
 

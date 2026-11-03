@@ -5,6 +5,7 @@
 !/data/reference/
 /data/reference/*
 !/data/reference/mass_excess_ame2020.dat
+!/data/reference/shell_corrections_gilbert_cameron_1965.dat
 
 # Libraries do not pin a manifest; each environment resolves against [compat].
 Manifest*.toml
@@ -21,4 +22,3 @@ LocalPreferences.toml
 .idea/
 *~
 .DS_Store
-!/data/reference/shell_corrections_gilbert_cameron_1965.dat

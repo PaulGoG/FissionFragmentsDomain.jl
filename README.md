@@ -20,10 +20,9 @@ FissionFragmentsDomain.jl/
 
 FissionFragmentsDomain.jl describes the fragments of binary fission as models of prompt emission
 and of the excitation-energy partition need them. A fissioning system splits into complementary
-pairs `(A_L, Z_L) + (A_H, Z_H)` at a total kinetic energy `TKE`; this package holds what such
-models share, so that a calculation extracting the temperature ratio `R_T(A_H)` from the measured
-prompt neutron multiplicity `ν(A)` and one applying it to the emission of prompt neutrons work on
-one domain rather than two copies that drift apart:
+pairs `(A_L, Z_L) + (A_H, Z_H)` at a total kinetic energy `TKE`. Extracting the temperature ratio
+`R_T(A_H)` from the measured prompt neutron multiplicity `ν(A)` and applying it to prompt-neutron
+emission need the same description of these pairs. This package holds it:
 
 - nuclides, fissioning systems and the system token `Cf252_sf` that names them everywhere;
 - the 2020 atomic mass evaluation, shipped, with `Q`-values and separation energies;
@@ -56,7 +55,7 @@ A consuming package declares it under `[sources]` in its `Project.toml`:
 
 ```toml
 [sources]
-FissionFragmentsDomain = {url = "https://github.com/PaulGoG/FissionFragmentsDomain.jl"}
+FissionFragmentsDomain = {url = "https://github.com/PaulGoG/FissionFragmentsDomain.jl", rev = "v0.2.4"}
 ```
 
 From a clone, every environment activates and instantiates itself:
