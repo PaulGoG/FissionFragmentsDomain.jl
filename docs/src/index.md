@@ -4,9 +4,9 @@ CurrentModule = FissionFragmentsDomain
 
 # FissionFragmentsDomain
 
-The fragments of binary fission as the models of prompt emission and of the excitation-energy
-partition see them. The literature behind the conventions and the shipped data is listed with DOIs
-under [References](references.md).
+Kinematic, structural, and thermodynamic domain representations of binary fission fragments for
+prompt emission and excitation-energy partition models. The literature behind the conventions and the
+shipped data is listed with DOIs under [References](references.md).
 
 The pages follow the order in which a model consumes the domain.
 

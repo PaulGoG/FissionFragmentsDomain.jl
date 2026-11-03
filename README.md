@@ -18,11 +18,13 @@ FissionFragmentsDomain.jl/
 └── check.jl        formatter, then the test suite
 ```
 
-FissionFragmentsDomain.jl describes the fragments of binary fission as models of prompt emission
-and of the excitation-energy partition need them. A fissioning system splits into complementary
-pairs `(A_L, Z_L) + (A_H, Z_H)` at a total kinetic energy `TKE`. Extracting the temperature ratio
-`R_T(A_H)` from the measured prompt neutron multiplicity `ν(A)` and applying it to prompt-neutron
-emission need the same description of these pairs. This package holds it:
+FissionFragmentsDomain.jl defines the kinematic, structural, and thermodynamic domain of binary
+fission fragments required by prompt emission models and excitation-energy partition calculations.
+In low-energy binary fission, a compound nucleus splits into complementary fragment pairs
+`(A_L, Z_L) + (A_H, Z_H)` at total kinetic energy `TKE`. Both the model-independent extraction of
+the fragment temperature ratio `R_T(A_H)` from measured prompt neutron multiplicities `ν(A)` and
+the subsequent sequential evaporation calculations share a common physical representation of these
+pairs. This package provides the underlying definitions, tables, and transformations:
 
 - nuclides, fissioning systems and the system token `Cf252_sf` that names them everywhere;
 - the 2020 atomic mass evaluation, shipped, with `Q`-values and separation energies;
@@ -67,9 +69,9 @@ julia check.jl                     # format in place, then run the tests
 julia docs/make.jl                 # build the documentation into docs/build
 ```
 
-Every test rests on a public source shipped with the package: the AME2020 mass table, the
-Gilbert–Cameron shell corrections and Wahl's 1988 charge model, so a fresh clone runs the whole
-suite.
+All unit tests rely exclusively on public datasets distributed directly with the package—the
+AME2020 mass evaluation, Gilbert–Cameron shell corrections, and Wahl's 1988 charge model—ensuring that
+the test suite runs self-contained on a bare clone.
 
 ```julia
 using FissionFragmentsDomain
